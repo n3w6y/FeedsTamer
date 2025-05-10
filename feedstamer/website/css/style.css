@@ -65,6 +65,53 @@ a {
     text-decoration: none;
     transition: color 0.3s;
 }
+.form-container {
+    position: relative;
+    width: 100%;
+    max-width: 640px; /* Match the original iframe width */
+    margin: 0 auto; /* Center the container */
+    overflow: hidden; /* Prevent content overflow */
+}
+
+.form-container iframe {
+    width: 100%;
+    height: 751px; /* Original height */
+    border: none;
+    display: block; /* Remove any default inline spacing */
+}
+
+/* Maintain aspect ratio using padding (optional, for better control) */
+.form-container::before {
+    content: '';
+    display: block;
+    padding-top: 117.34%; /* 751px / 640px = ~1.1734 (aspect ratio) */
+}
+
+.form-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/* Media query for smaller screens (e.g., mobile) */
+@media (max-width: 768px) {
+    .form-container {
+        max-width: 100%; /* Full width on mobile */
+    }
+
+    .form-container iframe {
+        height: auto; /* Allow height to adjust */
+        min-height: 500px; /* Minimum height for usability */
+    }
+}
+
+@media (max-width: 480px) {
+    .form-container iframe {
+        min-height: 400px; /* Further reduce for very small screens */
+    }
+}
 
 a:hover {
     color: var(--primary-dark);
