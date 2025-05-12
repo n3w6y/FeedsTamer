@@ -1,12 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:Feedstamer/screens/auth/login_screen.dart';
-import 'package:Feedstamer/screens/home/home_screen.dart';
-import 'package:Feedstamer/screens/onboarding/onboarding_screen.dart';
-import 'package:Feedstamer/services/auth_service.dart';
-import 'package:Feedstamer/services/preference_service.dart';
-import 'package:Feedstamer/constants/theme.dart';
+import 'package:feedstamer/screens/auth/login_screen.dart';
+import 'package:feedstamer/screens/home/home_screen.dart';
+import 'package:feedstamer/screens/onboarding/onboarding_screen.dart';
+import 'package:feedstamer/services/auth_service.dart';
+import 'package:feedstamer/services/preference_service.dart';
+import 'package:feedstamer/constants/theme.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -92,7 +92,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Logo will go here
+              // Logo
               Container(
                 width: 120,
                 height: 120,
@@ -110,7 +110,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               ),
               const SizedBox(height: 24),
               Text(
-                'Feedstamer',
+                'FeedsTamer',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -118,7 +118,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               ),
               const SizedBox(height: 8),
               Text(
-                'Reclaim your attention',
+                'Tame your feeds!',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white.withOpacity(0.8),
                 ),

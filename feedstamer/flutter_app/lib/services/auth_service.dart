@@ -2,7 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:Feedstamer/models/user_model.dart';
+import 'package:feedstamer/models/user_model.dart';
 
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 final authUserProvider = StreamProvider<User?>((ref) {
@@ -71,7 +71,7 @@ class AuthService {
               'usageReminders': true,
             },
           },
-          'FeedsSettings': {
+          'feedSettings': {
             'defaultView': 'unified',
             'contentOrder': 'chronological',
             'showReadPosts': false,

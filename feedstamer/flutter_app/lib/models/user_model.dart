@@ -103,13 +103,13 @@ class SubscriptionModel {
 class PreferencesModel {
   final String theme; // 'light', 'dark', 'system'
   final NotificationsPreferencesModel notifications;
-  final FeedsSettingsModel FeedsSettings;
+  final FeedSettingsModel feedSettings;
   final SessionLimitsModel sessionLimits;
   
   PreferencesModel({
     required this.theme,
     required this.notifications,
-    required this.FeedsSettings,
+    required this.feedSettings,
     required this.sessionLimits,
   });
   
@@ -117,7 +117,7 @@ class PreferencesModel {
     return PreferencesModel(
       theme: map['theme'] ?? 'system',
       notifications: NotificationsPreferencesModel.fromMap(map['notifications'] ?? {}),
-      FeedsSettings: FeedsSettingsModel.fromMap(map['FeedsSettings'] ?? {}),
+      feedSettings: FeedSettingsModel.fromMap(map['feedSettings'] ?? {}),
       sessionLimits: SessionLimitsModel.fromMap(map['sessionLimits'] ?? {}),
     );
   }
@@ -126,7 +126,7 @@ class PreferencesModel {
     return {
       'theme': theme,
       'notifications': notifications.toMap(),
-      'FeedsSettings': FeedsSettings.toMap(),
+      'feedSettings': feedSettings.toMap(),
       'sessionLimits': sessionLimits.toMap(),
     };
   }
@@ -134,13 +134,13 @@ class PreferencesModel {
   PreferencesModel copyWith({
     String? theme,
     NotificationsPreferencesModel? notifications,
-    FeedsSettingsModel? FeedsSettings,
+    FeedSettingsModel? feedSettings,
     SessionLimitsModel? sessionLimits,
   }) {
     return PreferencesModel(
       theme: theme ?? this.theme,
       notifications: notifications ?? this.notifications,
-      FeedsSettings: FeedsSettings ?? this.FeedsSettings,
+      feedSettings: feedSettings ?? this.feedSettings,
       sessionLimits: sessionLimits ?? this.sessionLimits,
     );
   }
@@ -187,19 +187,19 @@ class NotificationsPreferencesModel {
   }
 }
 
-class FeedsSettingsModel {
+class FeedSettingsModel {
   final String defaultView; // 'unified', 'platform'
   final String contentOrder; // 'chronological', 'platform'
   final bool showReadPosts;
   
-  FeedsSettingsModel({
+  FeedSettingsModel({
     required this.defaultView,
     required this.contentOrder,
     required this.showReadPosts,
   });
   
-  factory FeedsSettingsModel.fromMap(Map<String, dynamic> map) {
-    return FeedsSettingsModel(
+  factory FeedSettingsModel.fromMap(Map<String, dynamic> map) {
+    return FeedSettingsModel(
       defaultView: map['defaultView'] ?? 'unified',
       contentOrder: map['contentOrder'] ?? 'chronological',
       showReadPosts: map['showReadPosts'] ?? false,
