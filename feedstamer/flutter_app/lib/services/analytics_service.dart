@@ -1,5 +1,4 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/material.dart';
 
 class AnalyticsService {
   // Singleton pattern
@@ -44,7 +43,7 @@ class AnalyticsService {
   Future<void> logEvent(String name, {Map<String, dynamic>? parameters}) async {
     await _analytics.logEvent(
       name: name,
-      parameters: parameters,
+      parameters: parameters?.cast<String, Object>() ?? <String, Object>{},
     );
   }
   
@@ -161,7 +160,7 @@ class AnalyticsService {
       parameters: {
         'plan': plan,
         'method': method,
-        'value': value,
+        'value': value ?? 0.0, // Default to 0.0 if null
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       },
     );

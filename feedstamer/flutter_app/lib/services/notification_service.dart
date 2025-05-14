@@ -1,6 +1,13 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:logger/logger.dart';
+
+final logger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0, // Reduces stack trace verbosity
+    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart, // Replaces printTime
+  ),
+);
 
 class NotificationService {
   // Singleton pattern
@@ -21,7 +28,7 @@ class NotificationService {
       provisional: false,
     );
     
-    print('User notification settings: ${settings.authorizationStatus}');
+    logger.i('User notification settings: ${settings.authorizationStatus}');
     
     // Initialize local notifications
     const AndroidInitializationSettings initializationSettingsAndroid =
@@ -53,7 +60,7 @@ class NotificationService {
     
     // Get FCM token for this device
     String? token = await _firebaseMessaging.getToken();
-    print('FCM Token: $token');
+    logger.i('FCM Token: $token');
   }
   
   // Create notification channels for Android
@@ -69,7 +76,7 @@ class NotificationService {
       'reminder_channel',
       'Reminders',
       description: 'Usage reminders and focus session notifications',
-      importance: Importance.default_,
+      importance: Importance.low,
     );
     
     const AndroidNotificationChannel analyticsChannel = AndroidNotificationChannel(
@@ -79,18 +86,20 @@ class NotificationService {
       importance: Importance.low,
     );
     
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannels([contentChannel, reminderChannel, analyticsChannel]);
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.createNotificationChannel(contentChannel);
+    await androidPlugin?.createNotificationChannel(reminderChannel);   // Added to use reminderChannel
+    await androidPlugin?.createNotificationChannel(analyticsChannel);  // Added to use analyticsChannel
   }
   
   // Handle foreground messages
   void _handleForegroundMessage(RemoteMessage message) async {
-    print('Got a message in the foreground!');
-    print('Message data: ${message.data}');
+    logger.i('Got a message in the foreground!');
+    logger.i('Message data: ${message.data}');
     
     if (message.notification != null) {
-      print('Message notification: ${message.notification}');
+      logger.i('Message notification: ${message.notification}');
       
       // Show a local notification
       await _showLocalNotification(
@@ -117,12 +126,12 @@ class NotificationService {
       importance: channelId == 'content_channel'
           ? Importance.high
           : channelId == 'reminder_channel'
-              ? Importance.default_
+              ? Importance.defaultImportance
               : Importance.low,
       priority: channelId == 'content_channel'
           ? Priority.high
           : channelId == 'reminder_channel'
-              ? Priority.default_
+              ? Priority.defaultPriority
               : Priority.low,
       icon: '@mipmap/launcher_icon',
     );
@@ -149,16 +158,16 @@ class NotificationService {
   
   // For iOS foreground notifications
   void _onDidReceiveLocalNotification(int id, String? title, String? body, String? payload) {
-    print('iOS local notification: $title');
+    logger.i('iOS local notification: $title');
   }
   
   // Handle notification taps
   void _onDidReceiveNotificationResponse(NotificationResponse response) {
-    print('Notification tapped: ${response.payload}');
+    logger.i('Notification tapped: ${response.payload}');
     // Handle notification tap here (e.g. navigate to specific screen)
   }
   
-  // Schedule a local notification
+    // Schedule a local notification
   Future<void> scheduleNotification({
     required int id,
     required String title,
@@ -193,12 +202,14 @@ class NotificationService {
       body,
       scheduledTime as dynamic, // This is a simplification; in practice, use TZDateTime
       details,
-      androidAllowWhileIdle: true,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, // Replaced androidAllowWhileIdle
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: payload,
     );
   }
+
+ 
   
   // Cancel a specific notification
   Future<void> cancelNotification(int id) async {

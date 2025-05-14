@@ -1,5 +1,13 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart'; // Added for logging
+
+final logger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0,
+    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+  ),
+);
 
 class UserPreferences {
   final bool isFirstLaunch;
@@ -102,7 +110,7 @@ class PreferenceService {
         final Map<String, dynamic> prefsMap = jsonDecode(prefsJson);
         return UserPreferences.fromJson(prefsMap);
       } catch (e) {
-        print('Error parsing preferences: $e');
+        logger.e('Error parsing preferences: $e'); // Replaced print() with logger
         return UserPreferences();
       }
     } else {

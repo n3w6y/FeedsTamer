@@ -45,12 +45,10 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: AppColors.lightPrimary,
         secondary: AppColors.lightAccent,
-        background: AppColors.lightBackground,
         surface: AppColors.lightCard,
         error: AppColors.lightError,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onBackground: AppColors.lightText,
         onSurface: AppColors.lightText,
         onError: Colors.white,
       ),
@@ -136,8 +134,8 @@ class AppTheme {
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.lightPrimary;
           }
           return Colors.transparent;
@@ -148,14 +146,15 @@ class AppTheme {
         ),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.lightPrimary;
           }
           return Colors.white;
         }),
-        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        trackColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            // ignore: deprecated_member_use
             return AppColors.lightPrimary.withOpacity(0.5);
           }
           return AppColors.lightInactive;
@@ -183,12 +182,10 @@ class AppTheme {
       colorScheme: ColorScheme.dark(
         primary: AppColors.darkPrimary,
         secondary: AppColors.darkAccent,
-        background: AppColors.darkBackground,
         surface: AppColors.darkCard,
         error: AppColors.darkError,
         onPrimary: Colors.black,
         onSecondary: Colors.black,
-        onBackground: AppColors.darkText,
         onSurface: AppColors.darkText,
         onError: Colors.white,
       ),
@@ -274,8 +271,8 @@ class AppTheme {
         margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
       ),
       checkboxTheme: CheckboxThemeData(
-        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.darkPrimary;
           }
           return Colors.transparent;
@@ -286,14 +283,15 @@ class AppTheme {
         ),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        thumbColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
             return AppColors.darkPrimary;
           }
           return Colors.white;
         }),
-        trackColor: MaterialStateProperty.resolveWith<Color>((states) {
-          if (states.contains(MaterialState.selected)) {
+        trackColor: WidgetStateProperty.resolveWith<Color>((states) {
+          if (states.contains(WidgetState.selected)) {
+            // ignore: deprecated_member_use
             return AppColors.darkPrimary.withOpacity(0.5);
           }
           return AppColors.darkInactive;

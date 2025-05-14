@@ -8,11 +8,22 @@ import 'package:feedstamer/screens/splash_screen.dart';
 import 'package:feedstamer/constants/theme.dart';
 import 'package:feedstamer/services/analytics_service.dart';
 import 'package:feedstamer/services/notification_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:logger/logger.dart'; // Added for logging
+
+final logger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0,
+    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+  ),
+);
 
 // Handle background messages
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print('Handling a background message: ${message.messageId}');
+  if (!kIsWeb) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
+  logger.i('Handling a background message: ${message.messageId}'); // Replaced print()
 }
 
 void main() async {
@@ -21,20 +32,19 @@ void main() async {
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitUpsideDown,
   ]);
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Set up Firebase Messaging
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  
-  // Initialize services
-  await NotificationService().init();
-  await AnalyticsService().init();
+  // Initialize Firebase only on non-web platforms
+  if (!kIsWeb) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // Set up Firebase Messaging
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    // Initialize services that depend on Firebase
+    await NotificationService().init();
+    await AnalyticsService().init();
+  }
   
   runApp(
     const ProviderScope(
@@ -44,7 +54,7 @@ void main() async {
 }
 
 class FeedsTamerApp extends ConsumerWidget {
-  const FeedsTamerApp({Key? key}) : super(key: key);
+  const FeedsTamerApp({super.key}); // Converted to super parameter
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,7 +68,7 @@ class FeedsTamerApp extends ConsumerWidget {
       themeMode: themeMode,
       home: const SplashScreen(),
       navigatorObservers: [
-        AnalyticsService().getAnalyticsObserver(),
+        if (!kIsWeb) AnalyticsService().getAnalyticsObserver(),
       ],
     );
   }

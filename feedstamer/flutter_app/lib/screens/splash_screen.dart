@@ -4,12 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:feedstamer/screens/auth/login_screen.dart';
 import 'package:feedstamer/screens/home/home_screen.dart';
 import 'package:feedstamer/screens/onboarding/onboarding_screen.dart';
-import 'package:feedstamer/services/auth_service.dart';
 import 'package:feedstamer/services/preference_service.dart';
-import 'package:feedstamer/constants/theme.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
@@ -120,7 +118,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               Text(
                 'Tame your feeds!',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withOpacity(0.8), // Reverted to withOpacity
                 ),
               ),
             ],
