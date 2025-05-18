@@ -20,10 +20,7 @@ final logger = Logger(
 
 // Handle background messages
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  if (!kIsWeb) {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  }
-  logger.i('Handling a background message: ${message.messageId}'); // Replaced print()
+  logger.i('Handling a background message: ${message.messageId}');
 }
 
 void main() async {
@@ -36,9 +33,11 @@ void main() async {
   
   // Initialize Firebase only on non-web platforms
   if (!kIsWeb) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+    if (Firebase.apps.isEmpty) { // Guard against duplicate initialization
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
     // Set up Firebase Messaging
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
     // Initialize services that depend on Firebase

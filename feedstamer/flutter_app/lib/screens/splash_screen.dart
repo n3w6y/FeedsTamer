@@ -107,7 +107,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
+Text(
                 'FeedsTamer',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: Colors.white,
@@ -118,7 +118,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               Text(
                 'Tame your feeds!',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withOpacity(0.8), // Reverted to withOpacity
+                  color: Color.fromRGBO(255, 255, 255, 0.8), // White with 80% opacity
                 ),
               ),
             ],

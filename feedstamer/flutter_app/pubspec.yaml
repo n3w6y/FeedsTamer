@@ -12,16 +12,16 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_local_notifications: ^15.0.0  # Ensure this is set to ^15.0.0
+  flutter_local_notifications: ^15.0.0  # Downgraded to avoid timezone conflict
   logger: ^2.4.0
 
   # Firebase packages
-  firebase_core: ^3.13.0
-  firebase_auth: ^5.5.3
-  cloud_firestore: ^5.6.7
-  firebase_analytics: ^11.4.5
-  firebase_storage: ^12.4.5
-  firebase_messaging: ^15.2.5
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  cloud_firestore: ^4.17.5
+  firebase_analytics: ^10.10.7
+  firebase_storage: ^11.7.7
+  firebase_messaging: ^14.9.4
 
   # State management
   provider: ^6.0.5
@@ -39,7 +39,7 @@ dependencies:
   intl: ^0.18.1
   url_launcher: ^6.1.12
   shared_preferences: ^2.2.0
-  flutter_secure_storage: ^8.1.0
+  flutter_secure_storage: ^9.2.4
   dio: ^5.3.0
   json_annotation: ^4.8.1
 
@@ -93,3 +93,6 @@ flutter_native_splash:
   android_12:
     image: "assets/images/splash_logo.png"
     color: "#3A7CA5"
+
+dependency_overrides:
+  flutter_local_notifications: 15.0.0  # Force exact version
