@@ -32,6 +32,7 @@ void main() async {
   ]);
   
   // Initialize Firebase only on non-web platforms
+  bool firebaseInitialized = false;
   if (!kIsWeb) {
     try {
       logger.i('Checking Firebase.apps: ${Firebase.apps.length}');
@@ -41,22 +42,39 @@ void main() async {
           options: DefaultFirebaseOptions.currentPlatform,
         );
         logger.i('Firebase initialized successfully');
+        firebaseInitialized = true;
       } else {
         logger.i('Firebase already initialized, skipping initialization');
+        firebaseInitialized = true;
       }
-      
-      // These lines remain unchanged
-      logger.i('Setting up Firebase Messaging...');
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      logger.i('Initializing NotificationService...');
-      await NotificationService().init();
-      logger.i('Initializing AnalyticsService...');
-      await AnalyticsService().init();
-      logger.i('Service initialization complete');
     } catch (e) {
       // Add error catching to prevent crashes
       logger.e('Firebase initialization error: $e');
       // Continue app execution even if Firebase fails
+      firebaseInitialized = false;
+    }
+    
+    // Only initialize these services if Firebase initialized successfully
+    if (firebaseInitialized) {
+      try {
+        logger.i('Setting up Firebase Messaging...');
+        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+        
+        logger.i('Initializing NotificationService...');
+        await NotificationService().init();
+        
+        logger.i('Initializing AnalyticsService...');
+        await AnalyticsService().init();
+        
+        logger.i('Service initialization complete');
+      } catch (e) {
+        logger.e('Service initialization error: $e');
+        // Continue app execution even if service initialization fails
+      }
+    } else {
+      // Initialize with empty implementations
+      logger.i('Initializing services with minimal functionality due to Firebase initialization failure');
+      await AnalyticsService().init(); // This will create the dummy observer
     }
   }
   

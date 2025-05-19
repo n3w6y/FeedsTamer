@@ -1,4 +1,13 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:logger/logger.dart';
+
+// Create a logger instance for this service
+final logger = Logger(
+  printer: PrettyPrinter(
+    methodCount: 0,
+    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+  ),
+);
 
 class AnalyticsService {
   // Singleton pattern
@@ -7,18 +16,28 @@ class AnalyticsService {
   AnalyticsService._internal();
 
   final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
-  late FirebaseAnalyticsObserver _observer;
+  // Make this nullable instead of late
+  FirebaseAnalyticsObserver? _observer;
   
   Future<void> init() async {
-    _observer = FirebaseAnalyticsObserver(analytics: _analytics);
-    
-    // Enable analytics collection
-    await _analytics.setAnalyticsCollectionEnabled(true);
+    try {
+      // Initialize observer
+      _observer = FirebaseAnalyticsObserver(analytics: _analytics);
+      
+      // Enable analytics collection
+      await _analytics.setAnalyticsCollectionEnabled(true);
+    } catch (e) {
+      // Gracefully handle initialization errors
+      logger.e('Analytics service initialization error: $e');
+      // Create a dummy observer that does nothing if initialization fails
+      _observer = null;
+    }
   }
   
-  // Get analytics observer for navigator
+  // Get analytics observer for navigator - handle null case
   FirebaseAnalyticsObserver getAnalyticsObserver() {
-    return _observer;
+    // Return a dummy observer if the real one isn't initialized
+    return _observer ?? FirebaseAnalyticsObserver(analytics: _analytics);
   }
   
   // Log a screen view
