@@ -32,26 +32,32 @@ void main() async {
   ]);
   
   // Initialize Firebase only on non-web platforms
-  Future<void>? firebaseInitFuture;
   if (!kIsWeb) {
-    logger.i('Checking Firebase.apps: ${Firebase.apps.length}');
-    if (Firebase.apps.isEmpty) {
-      logger.i('Initializing Firebase...');
-      firebaseInitFuture = Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      await firebaseInitFuture;
-      logger.i('Firebase initialized successfully');
-    } else {
-      logger.i('Firebase already initialized, skipping initialization');
+    try {
+      logger.i('Checking Firebase.apps: ${Firebase.apps.length}');
+      if (Firebase.apps.isEmpty) {
+        logger.i('Initializing Firebase...');
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        logger.i('Firebase initialized successfully');
+      } else {
+        logger.i('Firebase already initialized, skipping initialization');
+      }
+      
+      // These lines remain unchanged
+      logger.i('Setting up Firebase Messaging...');
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      logger.i('Initializing NotificationService...');
+      await NotificationService().init();
+      logger.i('Initializing AnalyticsService...');
+      await AnalyticsService().init();
+      logger.i('Service initialization complete');
+    } catch (e) {
+      // Add error catching to prevent crashes
+      logger.e('Firebase initialization error: $e');
+      // Continue app execution even if Firebase fails
     }
-    logger.i('Setting up Firebase Messaging...');
-    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    logger.i('Initializing NotificationService...');
-    await NotificationService().init();
-    logger.i('Initializing AnalyticsService...');
-    await AnalyticsService().init();
-    logger.i('Service initialization complete');
   }
   
   runApp(
