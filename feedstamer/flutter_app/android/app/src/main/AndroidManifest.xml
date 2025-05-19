@@ -3,6 +3,13 @@
         android:label="feedstamer"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Disable Firebase auto-initialization -->
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="true" />
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

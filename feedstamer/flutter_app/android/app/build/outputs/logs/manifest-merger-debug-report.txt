@@ -1,6 +1,6 @@
 -- Merging decision tree log ---
 application
-INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:2:5-33:19
+INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:2:5-40:19
 INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\debug\AndroidManifest.xml
 MERGED from [:cloud_firestore] C:\Users\amf\AppData\Local\Pub\Cache\hosted\pub.dev\cloud_firestore-4.17.5\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:5-13:19
 MERGED from [:cloud_firestore] C:\Users\amf\AppData\Local\Pub\Cache\hosted\pub.dev\cloud_firestore-4.17.5\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:7:5-13:19
@@ -99,8 +99,8 @@ MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\am
 	android:name
 		INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml
 manifest
-ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:1:1-45:12
-MERGED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:1:1-45:12
+ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:1:1-52:12
+MERGED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:1:1-52:12
 INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
 INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
 INJECTED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
@@ -227,17 +227,17 @@ MERGED from [com.google.firebase:protolite-well-known-types:18.0.0] C:\Users\amf
 	xmlns:android
 		ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:1:11-69
 queries
-ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:39:5-44:15
+ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:46:5-51:15
 intent#action:name:android.intent.action.PROCESS_TEXT+data:mimeType:text/plain
-ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:40:9-43:18
+ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:47:9-50:18
 action#android.intent.action.PROCESS_TEXT
-ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:41:13-72
+ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:48:13-72
 	android:name
-		ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:41:21-70
+		ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:48:21-70
 data
-ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:42:13-50
+ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:49:13-50
 	android:mimeType
-		ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:42:19-48
+		ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\main\AndroidManifest.xml:49:19-48
 uses-permission#android.permission.INTERNET
 ADDED from C:\DEV\Github\FeedsTamer\feedstamer\flutter_app\android\app\src\debug\AndroidManifest.xml:6:5-66
 MERGED from [:firebase_analytics] C:\Users\amf\AppData\Local\Pub\Cache\hosted\pub.dev\firebase_analytics-10.10.7\android\build\intermediates\merged_manifest\debug\processDebugManifest\AndroidManifest.xml:8:5-67

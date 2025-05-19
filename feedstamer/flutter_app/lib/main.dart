@@ -32,17 +32,26 @@ void main() async {
   ]);
   
   // Initialize Firebase only on non-web platforms
+  Future<void>? firebaseInitFuture;
   if (!kIsWeb) {
-    if (Firebase.apps.isEmpty) { // Guard against duplicate initialization
-      await Firebase.initializeApp(
+    logger.i('Checking Firebase.apps: ${Firebase.apps.length}');
+    if (Firebase.apps.isEmpty) {
+      logger.i('Initializing Firebase...');
+      firebaseInitFuture = Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      await firebaseInitFuture;
+      logger.i('Firebase initialized successfully');
+    } else {
+      logger.i('Firebase already initialized, skipping initialization');
     }
-    // Set up Firebase Messaging
+    logger.i('Setting up Firebase Messaging...');
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    // Initialize services that depend on Firebase
+    logger.i('Initializing NotificationService...');
     await NotificationService().init();
+    logger.i('Initializing AnalyticsService...');
     await AnalyticsService().init();
+    logger.i('Service initialization complete');
   }
   
   runApp(

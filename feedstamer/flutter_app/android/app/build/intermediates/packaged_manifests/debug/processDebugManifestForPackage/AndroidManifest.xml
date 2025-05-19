@@ -55,6 +55,15 @@
         android:extractNativeLibs="false"
         android:icon="@mipmap/ic_launcher"
         android:label="feedstamer" >
+
+        <!-- Disable Firebase auto-initialization -->
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="true" />
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="false" />
+
         <activity
             android:name="com.feedstamer.feedstamer.MainActivity"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
