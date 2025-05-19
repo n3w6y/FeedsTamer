@@ -12,7 +12,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_local_notifications: ^15.0.0  # Downgraded to avoid timezone conflict
+  flutter_local_notifications: ^15.0.0  # Downgraded to avoid timezone conflict as Twitter relies on http ^0.13.5
   logger: ^2.4.0
 
   # Firebase packages
@@ -29,7 +29,7 @@ dependencies:
 
   # UI
   cupertino_icons: ^1.0.5
-  google_fonts: ^4.0.4
+  google_fonts: ^4.0.4 #downgraded as Twitter relies on ^0.13.5
   flutter_svg: ^2.0.9
   flutter_animate: ^4.2.0
   cached_network_image: ^3.3.1
@@ -44,7 +44,7 @@ dependencies:
   json_annotation: ^4.8.1
 
   # Social media APIs
-  twitter_api_v2: ^4.9.4
+  twitter_api_v2: ^4.9.4 #relies on ^0.13.5 so constains google_fonts, flutter_notifications, timezone
 
   # Analytics
   flutter_fgbg: ^0.3.0
