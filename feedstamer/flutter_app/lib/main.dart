@@ -10,6 +10,7 @@ import 'package:feedstamer/services/analytics_service.dart';
 import 'package:feedstamer/services/notification_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart'; // Added for logging
+import 'package:feedstamer/screens/dev_menu_screen.dart'; // Added for development menu
 
 final logger = Logger(
   printer: PrettyPrinter(
@@ -98,7 +99,10 @@ class FeedsTamerApp extends ConsumerWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
-      home: const SplashScreen(),
+      // Wrap the splash screen with our dev menu wrapper in debug mode
+      home: DevMenuWrapper(
+        child: const SplashScreen(),
+      ),
       navigatorObservers: [
         if (!kIsWeb) AnalyticsService().getAnalyticsObserver(),
       ],
