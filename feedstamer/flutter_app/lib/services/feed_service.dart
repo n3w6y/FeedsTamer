@@ -4,12 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 // Import the corrected path for the Tweet model
-import 'package:feedstamer/models/tweet.dart'; // Lowercase 't' in the import
+import 'package:feedstamer/models/Tweet.dart'; // Lowercase 't' in the import
 import 'package:feedstamer/services/x_service_integrator.dart';
 
 /// Service for managing feeds from different platforms
 class FeedService {
-  final XServiceIntegrator _xServiceIntegrator;
+  // Changed to non-final to allow modification in factory constructor
+  XServiceIntegrator _xServiceIntegrator;
   final Logger _logger = Logger();
   
   // Cache for followed accounts
@@ -18,10 +19,9 @@ class FeedService {
   // Singleton instance
   static final FeedService _instance = FeedService._internal();
   
-  // Factory constructor - fixed the null safety issue
+  // Factory constructor
   factory FeedService({XServiceIntegrator? xServiceIntegrator}) {
     if (xServiceIntegrator != null) {
-      // Use a non-null assertion operator to convert nullable to non-nullable
       _instance._xServiceIntegrator = xServiceIntegrator;
     }
     return _instance;
@@ -44,18 +44,18 @@ class FeedService {
         
         // If still empty, return empty list
         if (_followedTwitterAccounts.isEmpty) {
-          return [];
+          return Future.value([]); // Fixed: Wrapped in Future.value()
         }
       }
       
       // Get tweets from followed accounts
-      return await _xServiceIntegrator.getTweetsFromFollowedAccounts(
+      return _xServiceIntegrator.getTweetsFromFollowedAccounts(
         _followedTwitterAccounts,
         maxResults: maxResults,
       );
     } catch (e) {
       _logger.e('Error getting Twitter feed: $e');
-      return [];
+      return Future.value([]); // Fixed: Wrapped in Future.value()
     }
   }
   
@@ -105,10 +105,10 @@ class FeedService {
   /// Search for Twitter accounts
   Future<List<TwitterUser>> searchTwitterAccounts(String query) async {
     try {
-      return await _xServiceIntegrator.searchTwitterUsers(query);
+      return _xServiceIntegrator.searchTwitterUsers(query); // The method already returns Future<List<TwitterUser>>
     } catch (e) {
       _logger.e('Error searching Twitter accounts: $e');
-      return [];
+      return Future.value([]); // Fixed: Wrapped in Future.value()
     }
   }
   
