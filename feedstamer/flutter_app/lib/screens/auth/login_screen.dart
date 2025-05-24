@@ -7,7 +7,7 @@ import 'package:feedstamer/services/auth_service.dart';
 import 'package:flutter_signin_button/flutter_signin_button.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -393,7 +393,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
-                      color: theme.colorScheme.surfaceVariant.withAlpha(77),
+                      color: theme.colorScheme.surfaceContainerHighest.withAlpha(77),
                     ),
                     child: Column(
                       children: [

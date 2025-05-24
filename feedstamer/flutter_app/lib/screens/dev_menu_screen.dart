@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:feedstamer/services/preference_service.dart';
+import 'package:feedstamer/services/preference_service.dart'; 
 import 'package:feedstamer/screens/auth/login_screen.dart';
 import 'package:feedstamer/screens/home/home_screen.dart';
 import 'package:feedstamer/screens/onboarding/onboarding_screen.dart';
@@ -57,7 +57,7 @@ class DevMenuScreen extends StatelessWidget {
               title: 'Mark Onboarding as Completed',
               icon: Icons.check_circle,
               onPressed: () async {
-                await PreferenceService().setFirstLaunchComplete();
+                await PreferencesService().setFirstLaunchComplete();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Onboarding marked as completed')),
@@ -69,8 +69,8 @@ class DevMenuScreen extends StatelessWidget {
               title: 'Reset Onboarding (First Launch)',
               icon: Icons.refresh,
               onPressed: () async {
-                final preferences = await PreferenceService().getPreferences();
-                await PreferenceService().savePreferences(
+                final preferences = await PreferencesService().getPreferences();
+                await PreferencesService().savePreferences(
                   preferences.copyWith(isFirstLaunch: true),
                 );
                 if (context.mounted) {
@@ -85,7 +85,7 @@ class DevMenuScreen extends StatelessWidget {
               icon: Icons.delete_forever,
               color: Colors.red,
               onPressed: () async {
-                await PreferenceService().clearPreferences();
+                await PreferencesService().clearPreferences();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('All preferences cleared')),

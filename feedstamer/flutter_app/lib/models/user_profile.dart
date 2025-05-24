@@ -117,7 +117,7 @@ class UserProfile {
     DateTime? subscriptionExpiry,
   }) {
     return UserProfile(
-      uid: this.uid,
+      uid: uid,
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
@@ -125,7 +125,7 @@ class UserProfile {
       status: status ?? this.status,
       streakCount: streakCount ?? this.streakCount,
       lastActiveDate: lastActiveDate ?? this.lastActiveDate,
-      createdAt: this.createdAt,
+      createdAt: createdAt,
       updatedAt: DateTime.now(),
       preferences: preferences ?? this.preferences,
       followedAccounts: followedAccounts ?? this.followedAccounts,

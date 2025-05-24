@@ -37,7 +37,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceVariant.withAlpha(77),
+        fillColor: colorScheme.surfaceContainerHighest.withAlpha(77),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.outline),
@@ -63,7 +63,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         indicatorColor: colorScheme.primaryContainer,
-        labelTextStyle: MaterialStateProperty.all(
+        labelTextStyle: WidgetStateProperty.all(
           TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -109,7 +109,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: colorScheme.surfaceVariant.withAlpha(77),
+        fillColor: colorScheme.surfaceContainerHighest.withAlpha(77),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.outline),
@@ -135,7 +135,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         indicatorColor: colorScheme.primaryContainer,
-        labelTextStyle: MaterialStateProperty.all(
+        labelTextStyle: WidgetStateProperty.all(
           TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,

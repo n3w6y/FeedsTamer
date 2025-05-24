@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:feedstamer/screens/feed/feed_screen.dart';
+import 'package:feedstamer/screens/home/feed_screen.dart';
 import 'package:feedstamer/screens/discover/discover_screen.dart';
 import 'package:feedstamer/screens/profile/profile_screen.dart';
 import 'package:feedstamer/screens/analytics/analytics_screen.dart';
 import 'package:feedstamer/services/auth_service.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

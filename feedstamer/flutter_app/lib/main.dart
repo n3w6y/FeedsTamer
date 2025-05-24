@@ -1,9 +1,8 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+// import 'package:firebase_auth/firebase_auth.dart'; // Uncomment if using Firebase Auth
 import 'package:logger/logger.dart';
-
 import 'package:feedstamer/firebase_options.dart';
 import 'package:feedstamer/screens/auth/login_screen.dart';
 import 'package:feedstamer/screens/auth/verify_email_screen.dart';
@@ -12,7 +11,7 @@ import 'package:feedstamer/screens/onboarding/onboarding_screen.dart';
 import 'package:feedstamer/screens/splash/splash_screen.dart';
 import 'package:feedstamer/services/auth_service.dart';
 import 'package:feedstamer/services/analytics_service.dart';
-import 'package:feedstamer/services/preferences_service.dart';
+import 'package:feedstamer/services/preference_service.dart';
 import 'package:feedstamer/theme/app_theme.dart';
 
 final logger = Logger();

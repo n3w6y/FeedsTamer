@@ -48,7 +48,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
   }
   
   Future<void> _checkAuthAndNavigate() async {
-    final preferences = await PreferenceService().getPreferences();
+    final preferences = await PreferencesService().getPreferences();
     final isFirstLaunch = preferences.isFirstLaunch;
     
     if (isFirstLaunch) {

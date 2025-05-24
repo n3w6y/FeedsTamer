@@ -82,7 +82,7 @@ class FeedService {
       ),
       Tweet(
         id: '2',
-        text: 'Climate change requires global cooperation like we've never seen before. I'm optimistic that we can make progress.',
+        text: 'Climate change requires global cooperation like we have never seen before. I am optimistic that we can make progress.',
         createdAt: DateTime.now().subtract(const Duration(hours: 5)),
         author: authors[1],
         likeCount: 8765,
@@ -92,7 +92,7 @@ class FeedService {
       ),
       Tweet(
         id: '3',
-        text: 'Privacy is a fundamental human right. At Apple, it's also one of our core values.',
+        text: 'Privacy is a fundamental human right. At Apple, it is also one of our core values.',
         createdAt: DateTime.now().subtract(const Duration(hours: 8)),
         author: authors[2],
         likeCount: 7654,
@@ -102,7 +102,7 @@ class FeedService {
       ),
       Tweet(
         id: '4',
-        text: 'Just had a great conversation with the team about our latest projects. Can't wait to share more soon!',
+        text: 'Just had a great conversation with the team about our latest projects. Cannot wait to share more soon!',
         createdAt: DateTime.now().subtract(const Duration(hours: 12)),
         author: authors[0],
         likeCount: 3456,

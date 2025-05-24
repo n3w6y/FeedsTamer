@@ -8,7 +8,7 @@ import 'screens/splash_screen.dart';
 class DevMenuWrapper extends StatefulWidget {
   final Widget child;
 
-  const DevMenuWrapper({Key? key, required this.child}) : super(key: key);
+  const DevMenuWrapper({super.key, required this.child});
 
   @override
   _DevMenuWrapperState createState() => _DevMenuWrapperState();

@@ -4,7 +4,7 @@ import 'package:feedstamer/services/auth_service.dart';
 import 'package:feedstamer/screens/auth/verify_email_screen.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({Key? key}) : super(key: key);
+  const RegistrationScreen({super.key});
 
   @override
   State<RegistrationScreen> createState() => _RegistrationScreenState();
