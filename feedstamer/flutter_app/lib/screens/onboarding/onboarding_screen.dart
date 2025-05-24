@@ -1,6 +1,7 @@
+// lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
-import 'package:feedstamer/services/preference_service.dart';
 import 'package:feedstamer/screens/auth/login_screen.dart';
+import 'package:feedstamer/services/preferences_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -11,49 +12,26 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
+  final PreferencesService _preferencesService = PreferencesService();
   int _currentPage = 0;
-  final int _totalPages = 3;
-
-  final List<Map<String, dynamic>> _onboardingData = [
-    {
-      'title': 'Welcome to FeedsTamer',
-      'description': 'Take control of your content consumption with a more peaceful, focused feed experience.',
-      'image': Icons.filter_list, // This should be replaced with actual image assets
-    },
-    {
-      'title': 'Connect Your Accounts',
-      'description': 'Add your favorite platforms and get all your content in one unified, distraction-free place.',
-      'image': Icons.link, // This should be replaced with actual image assets
-    },
-    {
-      'title': 'Mindful Consumption',
-      'description': 'Set time limits, track your usage, and build healthier digital habits.',
-      'image': Icons.timer, // This should be replaced with actual image assets
-    },
+  
+  final List<OnboardingPage> _pages = [
+    const OnboardingPage(
+      title: 'Welcome to FeedsTamer',
+      description: 'Take control of your social media feeds and discover content that matters to you.',
+      image: Icons.rss_feed,
+    ),
+    const OnboardingPage(
+      title: 'Follow Your Interests',
+      description: 'Organize and follow accounts based on your interests, without the noise.',
+      image: Icons.interests,
+    ),
+    const OnboardingPage(
+      title: 'Stay Updated',
+      description: 'Get real-time updates from your favorite accounts across platforms.',
+      image: Icons.update,
+    ),
   ];
-
-  void _markOnboardingComplete() async {
-    // Set first launch to false in preferences
-    await PreferenceService().setFirstLaunchComplete();
-    
-    // Navigate to login screen
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const LoginScreen()),
-      );
-    }
-  }
-
-  void _nextPage() {
-    if (_currentPage < _totalPages - 1) {
-      _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    } else {
-      _markOnboardingComplete();
-    }
-  }
 
   @override
   void dispose() {
@@ -61,12 +39,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
+  void _nextPage() {
+    if (_currentPage < _pages.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeIn,
+      );
+    } else {
+      _completeOnboarding();
+    }
+  }
+
+  void _skipOnboarding() {
+    _completeOnboarding();
+  }
+
+  Future<void> _completeOnboarding() async {
+    await _preferencesService.setOnboardingCompleted();
+    
+    if (!mounted) return;
+    
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
     
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -76,50 +78,42 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: TextButton(
-                  onPressed: _markOnboardingComplete,
+                  onPressed: _skipOnboarding,
                   child: const Text('Skip'),
                 ),
               ),
             ),
             
-            // Page view for onboarding content
+            // Page content
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
+                itemCount: _pages.length,
                 onPageChanged: (int page) {
                   setState(() {
                     _currentPage = page;
                   });
                 },
-                itemCount: _onboardingData.length,
                 itemBuilder: (context, index) {
-                  return _buildOnboardingPage(
-                    _onboardingData[index]['title'],
-                    _onboardingData[index]['description'],
-                    _onboardingData[index]['image'],
-                    colorScheme,
-                  );
+                  return _pages[index];
                 },
               ),
             ),
             
-            // Page indicator
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _totalPages,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                    width: 12.0,
-                    height: 12.0,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _currentPage == index
-                          ? colorScheme.primary
-                          : Colors.grey.shade300,
-                    ),
+            // Page indicators
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _pages.length,
+                (index) => Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _currentPage == index
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.primary.withOpacity(0.3),
                   ),
                 ),
               ),
@@ -127,19 +121,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             
             // Next/Get Started button
             Padding(
-              padding: const EdgeInsets.only(bottom: 40.0, left: 24.0, right: 24.0),
+              padding: const EdgeInsets.all(32.0),
               child: ElevatedButton(
                 onPressed: _nextPage,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 56),
+                  minimumSize: const Size(double.infinity, 50),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: Text(
-                  _currentPage == _totalPages - 1 ? 'Get Started' : 'Next',
+                  _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -152,48 +144,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       ),
     );
   }
+}
 
-  Widget _buildOnboardingPage(String title, String description, IconData icon, ColorScheme colorScheme) {
+class OnboardingPage extends StatelessWidget {
+  final String title;
+  final String description;
+  final IconData image;
+
+  const OnboardingPage({
+    super.key,
+    required this.title,
+    required this.description,
+    required this.image,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      padding: const EdgeInsets.all(32.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon/Image
-          Container(
-            width: 180,
-            height: 180,
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withOpacity(0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              size: 80,
-              color: colorScheme.primary,
-            ),
+          Icon(
+            image,
+            size: 120,
+            color: theme.colorScheme.primary,
           ),
-          const SizedBox(height: 40),
-          
-          // Title
+          const SizedBox(height: 32),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 24,
+            style: theme.textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          
-          // Description
           Text(
             description,
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-              height: 1.5,
-            ),
+            style: theme.textTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
         ],

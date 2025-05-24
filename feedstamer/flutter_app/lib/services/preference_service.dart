@@ -1,185 +1,150 @@
-import 'dart:convert';
+// lib/services/preferences_service.dart
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logger/logger.dart'; // Added for logging
+import 'package:logger/logger.dart';
 
-final logger = Logger(
-  printer: PrettyPrinter(
-    methodCount: 0,
-    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
-  ),
-);
-
-class UserPreferences {
-  final bool isFirstLaunch;
-  final String theme; // 'light', 'dark', 'system'
-  final bool notificationsEnabled;
-  final String defaultView; // 'unified', 'platform'
-  final String contentOrder; // 'chronological', 'platform'
-  final bool showReadPosts;
-  final bool sessionLimitsEnabled;
-  final int dailyLimitMinutes;
-  final int reminderIntervalMinutes;
-
-  UserPreferences({
-    this.isFirstLaunch = true,
-    this.theme = 'system',
-    this.notificationsEnabled = true,
-    this.defaultView = 'unified',
-    this.contentOrder = 'chronological',
-    this.showReadPosts = false,
-    this.sessionLimitsEnabled = false,
-    this.dailyLimitMinutes = 60,
-    this.reminderIntervalMinutes = 20,
-  });
-
-  // Convert preferences to JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'isFirstLaunch': isFirstLaunch,
-      'theme': theme,
-      'notificationsEnabled': notificationsEnabled,
-      'defaultView': defaultView,
-      'contentOrder': contentOrder,
-      'showReadPosts': showReadPosts,
-      'sessionLimitsEnabled': sessionLimitsEnabled,
-      'dailyLimitMinutes': dailyLimitMinutes,
-      'reminderIntervalMinutes': reminderIntervalMinutes,
-    };
-  }
-
-  // Create preferences from JSON
-  factory UserPreferences.fromJson(Map<String, dynamic> json) {
-    return UserPreferences(
-      isFirstLaunch: json['isFirstLaunch'] ?? true,
-      theme: json['theme'] ?? 'system',
-      notificationsEnabled: json['notificationsEnabled'] ?? true,
-      defaultView: json['defaultView'] ?? 'unified',
-      contentOrder: json['contentOrder'] ?? 'chronological',
-      showReadPosts: json['showReadPosts'] ?? false,
-      sessionLimitsEnabled: json['sessionLimitsEnabled'] ?? false,
-      dailyLimitMinutes: json['dailyLimitMinutes'] ?? 60,
-      reminderIntervalMinutes: json['reminderIntervalMinutes'] ?? 20,
-    );
-  }
-
-  // Create a copy with updated values
-  UserPreferences copyWith({
-    bool? isFirstLaunch,
-    String? theme,
-    bool? notificationsEnabled,
-    String? defaultView,
-    String? contentOrder,
-    bool? showReadPosts,
-    bool? sessionLimitsEnabled,
-    int? dailyLimitMinutes,
-    int? reminderIntervalMinutes,
-  }) {
-    return UserPreferences(
-      isFirstLaunch: isFirstLaunch ?? this.isFirstLaunch,
-      theme: theme ?? this.theme,
-      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-      defaultView: defaultView ?? this.defaultView,
-      contentOrder: contentOrder ?? this.contentOrder,
-      showReadPosts: showReadPosts ?? this.showReadPosts,
-      sessionLimitsEnabled: sessionLimitsEnabled ?? this.sessionLimitsEnabled,
-      dailyLimitMinutes: dailyLimitMinutes ?? this.dailyLimitMinutes,
-      reminderIntervalMinutes: reminderIntervalMinutes ?? this.reminderIntervalMinutes,
-    );
-  }
-}
-
-class PreferenceService {
+class PreferencesService {
   // Singleton pattern
-  static final PreferenceService _instance = PreferenceService._internal();
-  factory PreferenceService() => _instance;
-  PreferenceService._internal();
-
-  // Keys for SharedPreferences
-  static const String _preferencesKey = 'user_preferences';
-
-  // Get user preferences
-  Future<UserPreferences> getPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Check if preferences exist
-    if (prefs.containsKey(_preferencesKey)) {
-      // Get preferences from storage
-      final String prefsJson = prefs.getString(_preferencesKey) ?? '{}';
-      
-      try {
-        final Map<String, dynamic> prefsMap = jsonDecode(prefsJson);
-        return UserPreferences.fromJson(prefsMap);
-      } catch (e) {
-        logger.e('Error parsing preferences: $e'); // Replaced print() with logger
-        return UserPreferences();
-      }
-    } else {
-      // Return default preferences
-      return UserPreferences();
+  static final PreferencesService _instance = PreferencesService._internal();
+  factory PreferencesService() => _instance;
+  PreferencesService._internal();
+  
+  final Logger logger = Logger();
+  
+  // Preferences keys
+  static const String _completedOnboardingKey = 'completed_onboarding';
+  static const String _darkModeKey = 'dark_mode';
+  static const String _notificationsEnabledKey = 'notifications_enabled';
+  static const String _lastRefreshKey = 'last_refresh';
+  static const String _developerModeKey = 'developer_mode';
+  
+  // Check if onboarding has been completed
+  Future<bool> hasCompletedOnboarding() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_completedOnboardingKey) ?? false;
+    } catch (e) {
+      logger.e('Error checking onboarding status: $e');
+      return false;
     }
   }
-
-  // Save user preferences
-  Future<void> savePreferences(UserPreferences preferences) async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    final String prefsJson = jsonEncode(preferences.toJson());
-    await prefs.setString(_preferencesKey, prefsJson);
+  
+  // Set onboarding as completed
+  Future<void> setOnboardingCompleted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_completedOnboardingKey, true);
+    } catch (e) {
+      logger.e('Error setting onboarding as completed: $e');
+    }
   }
-
-  // Update first launch status
-  Future<void> setFirstLaunchComplete() async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(isFirstLaunch: false));
+  
+  // Reset onboarding status (for development)
+  Future<void> resetOnboardingStatus() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_completedOnboardingKey, false);
+    } catch (e) {
+      logger.e('Error resetting onboarding status: $e');
+    }
   }
-
-  // Update theme preference
-  Future<void> setTheme(String theme) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(theme: theme));
+  
+  // Get dark mode preference
+  Future<bool> isDarkModeEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_darkModeKey) ?? false;
+    } catch (e) {
+      logger.e('Error getting dark mode preference: $e');
+      return false;
+    }
   }
-
-  // Update notifications preference
+  
+  // Set dark mode preference
+  Future<void> setDarkModeEnabled(bool enabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_darkModeKey, enabled);
+    } catch (e) {
+      logger.e('Error setting dark mode preference: $e');
+    }
+  }
+  
+  // Get notifications preference
+  Future<bool> areNotificationsEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_notificationsEnabledKey) ?? true;
+    } catch (e) {
+      logger.e('Error getting notifications preference: $e');
+      return true;
+    }
+  }
+  
+  // Set notifications preference
   Future<void> setNotificationsEnabled(bool enabled) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(notificationsEnabled: enabled));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_notificationsEnabledKey, enabled);
+    } catch (e) {
+      logger.e('Error setting notifications preference: $e');
+    }
   }
-
-  // Update default view preference
-  Future<void> setDefaultView(String view) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(defaultView: view));
+  
+  // Get last refresh time
+  Future<DateTime?> getLastRefreshTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastRefreshMillis = prefs.getInt(_lastRefreshKey);
+      
+      if (lastRefreshMillis == null) {
+        return null;
+      }
+      
+      return DateTime.fromMillisecondsSinceEpoch(lastRefreshMillis);
+    } catch (e) {
+      logger.e('Error getting last refresh time: $e');
+      return null;
+    }
   }
-
-  // Update content order preference
-  Future<void> setContentOrder(String order) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(contentOrder: order));
+  
+  // Set last refresh time
+  Future<void> setLastRefreshTime(DateTime time) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_lastRefreshKey, time.millisecondsSinceEpoch);
+    } catch (e) {
+      logger.e('Error setting last refresh time: $e');
+    }
   }
-
-  // Update show read posts preference
-  Future<void> setShowReadPosts(bool show) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(showReadPosts: show));
+  
+  // Get developer mode status
+  Future<bool> isDeveloperModeEnabled() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_developerModeKey) ?? false;
+    } catch (e) {
+      logger.e('Error getting developer mode status: $e');
+      return false;
+    }
   }
-
-  // Update session limits preferences
-  Future<void> setSessionLimits({
-    required bool enabled,
-    required int dailyLimit,
-    required int reminderInterval,
-  }) async {
-    final prefs = await getPreferences();
-    await savePreferences(prefs.copyWith(
-      sessionLimitsEnabled: enabled,
-      dailyLimitMinutes: dailyLimit,
-      reminderIntervalMinutes: reminderInterval,
-    ));
+  
+  // Set developer mode status
+  Future<void> setDeveloperModeEnabled(bool enabled) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_developerModeKey, enabled);
+    } catch (e) {
+      logger.e('Error setting developer mode status: $e');
+    }
   }
-
-  // Clear all preferences
-  Future<void> clearPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_preferencesKey);
+  
+  // Clear all preferences (for logout or testing)
+  Future<void> clearAll() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+    } catch (e) {
+      logger.e('Error clearing preferences: $e');
+    }
   }
 }

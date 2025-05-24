@@ -1,111 +1,136 @@
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:logger/logger.dart';
+
 import 'package:feedstamer/firebase_options.dart';
-import 'package:feedstamer/screens/splash_screen.dart';
-import 'package:feedstamer/constants/theme.dart';
+import 'package:feedstamer/screens/auth/login_screen.dart';
+import 'package:feedstamer/screens/auth/verify_email_screen.dart';
+import 'package:feedstamer/screens/home/home_screen.dart';
+import 'package:feedstamer/screens/onboarding/onboarding_screen.dart';
+import 'package:feedstamer/screens/splash/splash_screen.dart';
+import 'package:feedstamer/services/auth_service.dart';
 import 'package:feedstamer/services/analytics_service.dart';
-import 'package:feedstamer/services/notification_service.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:logger/logger.dart'; // Added for logging
-import 'package:feedstamer/screens/dev_menu_screen.dart'; // Added for development menu
+import 'package:feedstamer/services/preferences_service.dart';
+import 'package:feedstamer/theme/app_theme.dart';
 
-final logger = Logger(
-  printer: PrettyPrinter(
-    methodCount: 0,
-    dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
-  ),
-);
-
-// Handle background messages
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  logger.i('Handling a background message: ${message.messageId}');
-}
+final logger = Logger();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Set preferred orientations
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    logger.i('Firebase initialized successfully');
+  } catch (e) {
+    logger.e('Firebase initialization error: $e');
+    // Continue with minimal functionality
+  }
+
+  // Initialize services
+  final authService = AuthService();
+  await authService.initialize();
   
-  // Initialize Firebase only on non-web platforms
-  bool firebaseInitialized = false;
-  if (!kIsWeb) {
-    try {
-      logger.i('Checking Firebase.apps: ${Firebase.apps.length}');
-      if (Firebase.apps.isEmpty) {
-        logger.i('Initializing Firebase...');
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-        logger.i('Firebase initialized successfully');
-        firebaseInitialized = true;
-      } else {
-        logger.i('Firebase already initialized, skipping initialization');
-        firebaseInitialized = true;
-      }
-    } catch (e) {
-      // Add error catching to prevent crashes
-      logger.e('Firebase initialization error: $e');
-      // Continue app execution even if Firebase fails
-      firebaseInitialized = false;
-    }
-    
-    // Only initialize these services if Firebase initialized successfully
-    if (firebaseInitialized) {
-      try {
-        logger.i('Setting up Firebase Messaging...');
-        FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-        
-        logger.i('Initializing NotificationService...');
-        await NotificationService().init();
-        
-        logger.i('Initializing AnalyticsService...');
-        await AnalyticsService().init();
-        
-        logger.i('Service initialization complete');
-      } catch (e) {
-        logger.e('Service initialization error: $e');
-        // Continue app execution even if service initialization fails
-      }
-    } else {
-      // Initialize with empty implementations
-      logger.i('Initializing services with minimal functionality due to Firebase initialization failure');
-      await AnalyticsService().init(); // This will create the dummy observer
-    }
+  // Initialize other services
+  try {
+    await AnalyticsService.instance.initialize();
+    logger.i('Analytics service initialized successfully');
+  } catch (e) {
+    logger.i('Analytics service initialization error: $e');
   }
   
-  runApp(
-    const ProviderScope(
-      child: FeedsTamerApp(),
-    ),
-  );
+  runApp(const MyApp());
 }
 
-class FeedsTamerApp extends ConsumerWidget {
-  const FeedsTamerApp({super.key}); // Converted to super parameter
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final themeMode = ref.watch(themeModeProvider);
-    
+  Widget build(BuildContext context) {
     return MaterialApp(
       title: 'FeedsTamer',
-      debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
-      // Wrap the splash screen with our dev menu wrapper in debug mode
-      home: DevMenuWrapper(
-        child: const SplashScreen(),
-      ),
-      navigatorObservers: [
-        if (!kIsWeb) AnalyticsService().getAnalyticsObserver(),
-      ],
+      themeMode: ThemeMode.system,
+      debugShowCheckedModeBanner: false,
+      home: const AppStartupHandler(),
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
     );
+  }
+}
+
+class AppStartupHandler extends StatefulWidget {
+  const AppStartupHandler({super.key});
+
+  @override
+  State<AppStartupHandler> createState() => _AppStartupHandlerState();
+}
+
+class _AppStartupHandlerState extends State<AppStartupHandler> {
+  final AuthService _authService = AuthService();
+  final PreferencesService _preferencesService = PreferencesService();
+
+  @override
+  void initState() {
+    super.initState();
+    _handleStartup();
+  }
+
+  Future<void> _handleStartup() async {
+    await Future.delayed(const Duration(seconds: 2)); // Show splash for at least 2 seconds
+    
+    if (!mounted) return;
+
+    // Check if user has completed onboarding
+    final hasCompletedOnboarding = await _preferencesService.hasCompletedOnboarding();
+    
+    if (!hasCompletedOnboarding) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+      );
+      return;
+    }
+
+    // Check if user is signed in
+    final currentUser = _authService.currentUser;
+    
+    if (currentUser == null) {
+      // User is not signed in, go to login screen
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    } else {
+      // User is signed in
+      
+      // Check if email verification is required
+      if (!currentUser.emailVerified && currentUser.email != null) {
+        // Email is not verified, go to verification screen
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => VerifyEmailScreen(email: currentUser.email!),
+          ),
+        );
+      } else {
+        // User is signed in and email is verified, go to home screen
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const SplashScreen();
   }
 }

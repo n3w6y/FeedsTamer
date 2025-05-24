@@ -1,169 +1,462 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:feedstamer/models/user_model.dart';
-
-final authServiceProvider = Provider<AuthService>((ref) => AuthService());
-final authUserProvider = StreamProvider<User?>((ref) {
-  return FirebaseAuth.instance.authStateChanges();
-});
-
-final userProfileProvider = FutureProvider.family<UserModel?, String>((ref, uid) async {
-  return await ref.read(authServiceProvider).getUserProfile(uid);
-});
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:feedstamer/models/user_profile.dart';
 
 class AuthService {
+  // Singleton pattern
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  AuthService._internal();
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
-  // Get current user
-  User? get currentUser => _auth.currentUser;
-  
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final Logger logger = Logger();
+
   // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
-  
-  // Login with email & password
-  Future<UserCredential> loginWithEmailAndPassword(String email, String password) async {
+
+  // Current user profile
+  UserProfile? _currentUserProfile;
+  UserProfile? get currentUserProfile => _currentUserProfile;
+
+  // Get current Firebase user
+  User? get currentUser => _auth.currentUser;
+
+  // Check if user is signed in
+  bool get isSignedIn => _auth.currentUser != null;
+
+  // Initialize auth service
+  Future<void> initialize() async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return credential;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Login error: $e');
-      }
-      rethrow;
-    }
-  }
-  
-  // Register with email & password
-  Future<UserCredential> registerWithEmailAndPassword(
-    String email, 
-    String password,
-    String name,
-  ) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      
-      // Create user profile in Firestore
-      await _createUserProfile(credential.user!.uid, {
-        'uid': credential.user!.uid,
-        'email': email,
-        'name': name,
-        'profilePicture': '',
-        'subscription': {
-          'type': 'free',
-          'status': 'active',
-        },
-        'preferences': {
-          'theme': 'system',
-          'notifications': {
-            'enabled': true,
-            'types': {
-              'newContent': true,
-              'accountActivity': true,
-              'usageReminders': true,
-            },
-          },
-          'feedSettings': {
-            'defaultView': 'unified',
-            'contentOrder': 'chronological',
-            'showReadPosts': false,
-          },
-          'sessionLimits': {
-            'enabled': false,
-            'dailyLimit': 60,
-            'reminderInterval': 20,
-          },
-        },
-        'createdAt': FieldValue.serverTimestamp(),
+      // Listen to auth state changes
+      _auth.authStateChanges().listen((User? user) {
+        if (user != null) {
+          logger.i('User is signed in: ${user.uid}');
+          _loadUserProfile(user.uid);
+        } else {
+          logger.i('User is signed out');
+          _currentUserProfile = null;
+        }
       });
-      
-      return credential;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Registration error: $e');
+
+      // Check for existing user
+      if (_auth.currentUser != null) {
+        logger.i('Existing user found: ${_auth.currentUser!.uid}');
+        await _loadUserProfile(_auth.currentUser!.uid);
       }
+    } catch (e) {
+      logger.e('Error initializing auth service: $e');
+    }
+  }
+
+  // Load user profile from Firestore
+  Future<void> _loadUserProfile(String uid) async {
+    try {
+      final docRef = _firestore.collection('users').doc(uid);
+      final docSnapshot = await docRef.get();
+
+      if (docSnapshot.exists) {
+        _currentUserProfile = UserProfile.fromFirestore(docSnapshot);
+        
+        // Update streak if needed
+        final updatedProfile = _currentUserProfile!.updateStreak();
+        if (updatedProfile.lastActiveDate != _currentUserProfile!.lastActiveDate || 
+            updatedProfile.streakCount != _currentUserProfile!.streakCount) {
+          _currentUserProfile = updatedProfile;
+          await docRef.update({
+            'streakCount': updatedProfile.streakCount,
+            'lastActiveDate': updatedProfile.lastActiveDate,
+            'updatedAt': DateTime.now(),
+          });
+        }
+      } else {
+        // Create new profile if it doesn't exist
+        if (_auth.currentUser != null) {
+          final userData = {
+            'email': _auth.currentUser!.email ?? '',
+            'displayName': _auth.currentUser!.displayName,
+            'photoURL': _auth.currentUser!.photoURL,
+            'emailVerified': _auth.currentUser!.emailVerified,
+          };
+          await _createUserProfile(uid, userData);
+        }
+      }
+    } catch (e) {
+      logger.e('Error loading user profile: $e');
+    }
+  }
+
+  // Create new user profile in Firestore
+  Future<void> _createUserProfile(String uid, Map<String, dynamic> userData) async {
+    try {
+      final newProfile = UserProfile.fromFirebaseUser(userData, uid);
+      
+      await _firestore.collection('users').doc(uid).set(newProfile.toMap());
+      
+      _currentUserProfile = newProfile;
+      
+      logger.i('Created new user profile for: $uid');
+    } catch (e) {
+      logger.e('Error creating user profile: $e');
+    }
+  }
+
+  // Register with email and password
+  Future<UserCredential> registerWithEmailPassword(String email, String password) async {
+    try {
+      final result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Send email verification
+      await result.user?.sendEmailVerification();
+      
+      logger.i('Registered new user: ${result.user?.uid}');
+      
+      return result;
+    } catch (e) {
+      logger.e('Error registering user: $e');
       rethrow;
     }
   }
-  
-  // Create user profile in Firestore
-  Future<void> _createUserProfile(String uid, Map<String, dynamic> data) async {
-    await _firestore.collection('users').doc(uid).set(data);
-  }
-  
-  // Get user profile from Firestore
-  Future<UserModel?> getUserProfile(String uid) async {
+
+  // Sign in with email and password
+  Future<UserCredential> signInWithEmailPassword(String email, String password) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (doc.exists && doc.data() != null) {
-        return UserModel.fromMap(doc.data()!);
+      final result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      
+      logger.i('User signed in: ${result.user?.uid}');
+      
+      // Load user profile
+      if (result.user != null) {
+        await _loadUserProfile(result.user!.uid);
       }
-      return null;
+      
+      return result;
     } catch (e) {
-      if (kDebugMode) {
-        print('Error getting user profile: $e');
+      logger.e('Error signing in: $e');
+      rethrow;
+    }
+  }
+
+  // Sign in with Google
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      // Trigger the authentication flow
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      
+      if (googleUser == null) {
+        logger.w('Google sign in was cancelled by user');
+        return null;
       }
+
+      // Obtain the auth details from the request
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
+      // Create a new credential
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in with the credential
+      final result = await _auth.signInWithCredential(credential);
+      
+      logger.i('User signed in with Google: ${result.user?.uid}');
+      
+      // Load user profile
+      if (result.user != null) {
+        await _loadUserProfile(result.user!.uid);
+      }
+      
+      return result;
+    } catch (e) {
+      logger.e('Error signing in with Google: $e');
       return null;
     }
   }
-  
-  // Update user profile
-  Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
-    await _firestore.collection('users').doc(uid).update(data);
+
+  // Sign in with Facebook
+  Future<UserCredential?> signInWithFacebook() async {
+    try {
+      // Trigger the sign-in flow
+      final LoginResult loginResult = await FacebookAuth.instance.login();
+      
+      if (loginResult.status != LoginStatus.success) {
+        logger.w('Facebook sign in was cancelled or failed');
+        return null;
+      }
+
+      // Create a credential from the access token
+      final OAuthCredential credential = FacebookAuthProvider.credential(
+        loginResult.accessToken!.token,
+      );
+
+      // Sign in with the credential
+      final result = await _auth.signInWithCredential(credential);
+      
+      logger.i('User signed in with Facebook: ${result.user?.uid}');
+      
+      // Load user profile
+      if (result.user != null) {
+        await _loadUserProfile(result.user!.uid);
+      }
+      
+      return result;
+    } catch (e) {
+      logger.e('Error signing in with Facebook: $e');
+      return null;
+    }
   }
-  
+
+  // Sign in with Apple
+  Future<UserCredential?> signInWithApple() async {
+    try {
+      // Perform the sign-in request
+      final appleCredential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      // Create an OAuthCredential
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: appleCredential.identityToken,
+        accessToken: appleCredential.authorizationCode,
+      );
+
+      // Sign in with the credential
+      final result = await _auth.signInWithCredential(oauthCredential);
+      
+      logger.i('User signed in with Apple: ${result.user?.uid}');
+      
+      // Store name from Apple (only provided on first sign-in)
+      if (appleCredential.givenName != null &&
+          appleCredential.familyName != null &&
+          result.user != null) {
+        final displayName = 
+            '${appleCredential.givenName} ${appleCredential.familyName}';
+            
+        await result.user!.updateDisplayName(displayName);
+        
+        // Update profile in Firestore
+        await _firestore.collection('users').doc(result.user!.uid).update({
+          'displayName': displayName,
+          'updatedAt': DateTime.now(),
+        });
+      }
+      
+      // Load user profile
+      if (result.user != null) {
+        await _loadUserProfile(result.user!.uid);
+      }
+      
+      return result;
+    } catch (e) {
+      logger.e('Error signing in with Apple: $e');
+      return null;
+    }
+  }
+
+  // Sign in with Twitter
+  Future<UserCredential?> signInWithTwitter() async {
+    try {
+      // Create a TwitterAuthProvider
+      final TwitterAuthProvider twitterProvider = TwitterAuthProvider();
+
+      // Sign in with the credential
+      final result = await _auth.signInWithProvider(twitterProvider);
+
+      logger.i('User signed in with Twitter: ${result.user?.uid}');
+
+      // Load user profile
+      if (result.user != null) {
+        await _loadUserProfile(result.user!.uid);
+      }
+
+      return result;
+    } catch (e) {
+      logger.e('Error signing in with Twitter: $e');
+      return null;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
-    await _auth.signOut();
+    try {
+      await _googleSignIn.signOut();
+      await _auth.signOut();
+      
+      _currentUserProfile = null;
+      
+      logger.i('User signed out');
+    } catch (e) {
+      logger.e('Error signing out: $e');
+      rethrow;
+    }
   }
-  
-  // Password reset
+
+  // Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+      logger.i('Password reset email sent to: $email');
+    } catch (e) {
+      logger.e('Error sending password reset email: $e');
+      rethrow;
+    }
   }
-  
-  // Change password
-  Future<void> changePassword(String currentPassword, String newPassword) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('No user logged in');
-    
-    final credential = EmailAuthProvider.credential(
-      email: user.email!,
-      password: currentPassword,
-    );
-    
-    // Re-authenticate
-    await user.reauthenticateWithCredential(credential);
-    
-    // Change password
-    await user.updatePassword(newPassword);
+
+  // Resend email verification
+  Future<void> resendEmailVerification() async {
+    try {
+      final user = _auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('No user is currently logged in');
+      }
+      
+      await user.sendEmailVerification();
+      
+      logger.i('Email verification sent to: ${user.email}');
+    } catch (e) {
+      logger.e('Error sending email verification: $e');
+      rethrow;
+    }
   }
-  
-  // Delete account
-  Future<void> deleteAccount(String password) async {
-    final user = _auth.currentUser;
-    if (user == null) throw Exception('No user logged in');
-    
-    final credential = EmailAuthProvider.credential(
-      email: user.email!,
-      password: password,
-    );
-    
-    // Re-authenticate
-    await user.reauthenticateWithCredential(credential);
-    
-    // Delete Firestore data
-    await _firestore.collection('users').doc(user.uid).delete();
-    
-    // Delete account
-    await user.delete();
+
+  // Check if email is verified
+  Future<bool> isEmailVerified() async {
+    try {
+      final user = _auth.currentUser;
+      
+      if (user == null) {
+        return false;
+      }
+      
+      // Reload user data
+      await user.reload();
+      
+      return user.emailVerified;
+    } catch (e) {
+      logger.e('Error checking email verification: $e');
+      return false;
+    }
+  }
+
+  // Update user profile
+  Future<void> updateProfile({String? displayName, String? photoUrl}) async {
+    try {
+      final user = _auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('No user is currently logged in');
+      }
+      
+      // Update Firebase Auth profile
+      await user.updateDisplayName(displayName);
+      await user.updatePhotoURL(photoUrl);
+      
+      // Update Firestore profile
+      await _firestore.collection('users').doc(user.uid).update({
+        if (displayName != null) 'displayName': displayName,
+        if (photoUrl != null) 'photoURL': photoUrl,
+        'updatedAt': DateTime.now(),
+      });
+      
+      // Update local profile
+      if (_currentUserProfile != null) {
+        _currentUserProfile = _currentUserProfile!.copyWith(
+          displayName: displayName ?? _currentUserProfile!.displayName,
+          photoUrl: photoUrl ?? _currentUserProfile!.photoUrl,
+        );
+      }
+      
+      logger.i('Profile updated for user: ${user.uid}');
+    } catch (e) {
+      logger.e('Error updating profile: $e');
+      rethrow;
+    }
+  }
+
+  // Update user preferences
+  Future<void> updatePreferences(Map<String, dynamic> preferences) async {
+    try {
+      final user = _auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('No user is currently logged in');
+      }
+      
+      if (_currentUserProfile == null) {
+        throw Exception('User profile not loaded');
+      }
+      
+      // Merge with existing preferences
+      final mergedPreferences = {
+        ..._currentUserProfile!.preferences,
+        ...preferences,
+      };
+      
+      // Update Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'preferences': mergedPreferences,
+        'updatedAt': DateTime.now(),
+      });
+      
+      // Update local profile
+      _currentUserProfile = _currentUserProfile!.copyWith(
+        preferences: mergedPreferences,
+      );
+      
+      logger.i('Preferences updated for user: ${user.uid}');
+    } catch (e) {
+      logger.e('Error updating preferences: $e');
+      rethrow;
+    }
+  }
+
+  // Deactivate account
+  Future<void> deactivateAccount() async {
+    try {
+      final user = _auth.currentUser;
+      
+      if (user == null) {
+        throw Exception('No user is currently logged in');
+      }
+      
+      // Update account status in Firestore
+      await _firestore.collection('users').doc(user.uid).update({
+        'status': AccountStatus.deactivated.toString().split('.').last,
+        'updatedAt': DateTime.now(),
+      });
+      
+      // Update local profile
+      if (_currentUserProfile != null) {
+        _currentUserProfile = _currentUserProfile!.copyWith(
+          status: AccountStatus.deactivated,
+        );
+      }
+      
+      // Sign out the user
+      await signOut();
+      
+      logger.i('Account deactivated for user: ${user.uid}');
+    } catch (e) {
+      logger.e('Error deactivating account: $e');
+      rethrow;
+    }
   }
 }
