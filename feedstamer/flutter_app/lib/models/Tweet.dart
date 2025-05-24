@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 // Standardize on the correct file path - use capital T to match your actual file
-import 'package:feedstamer/models/Tweet.dart'; // Use the actual casing that exists in your project
+import 'package:feedstamer/models/tweet.dart'; // Use the actual casing that exists in your project
 import 'package:feedstamer/services/x_service_integrator.dart';
 
 /// Service for managing feeds from different platforms
