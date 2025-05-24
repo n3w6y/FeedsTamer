@@ -1,316 +1,245 @@
-import 'dart:async';
-import 'dart:io';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
+// lib/services/subscription_service.dart
 import 'package:logger/logger.dart';
-import 'package:feedstamer/models/user_profile.dart';
-import 'package:feedstamer/services/auth_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+//import 'dart:convert';
+import 'package:feedstamer/models/subscription_tier.dart';
 
+/// Service for managing subscription tiers and in-app purchases
 class SubscriptionService {
-  // Singleton pattern
+  final Logger _logger = Logger();
+  
+  // Current subscription tier
+  SubscriptionTier _currentTier = SubscriptionTier.free;
+  
+  // Subscription expiration
+  DateTime? _expirationDate;
+  
+  // Singleton instance
   static final SubscriptionService _instance = SubscriptionService._internal();
-  factory SubscriptionService() => _instance;
+  static SubscriptionService get instance => _instance;
+  
+  // Private constructor
   SubscriptionService._internal();
-
-  // Product IDs
-  static const String _kPremiumMonthlyId = 'premium_monthly';
-  static const String _kPremiumYearlyId = 'premium_yearly';
-  static const String _kBusinessMonthlyId = 'business_monthly';
-
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final AuthService _authService = AuthService();
-  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
-  final logger = Logger();
-
-  late StreamSubscription<List<PurchaseDetails>> _subscription;
-  List<ProductDetails> _products = [];
-  bool _isAvailable = false;
-  bool _isLoading = true;
-
-  // Getters
-  bool get isAvailable => _isAvailable;
-  bool get isLoading => _isLoading;
-  List<ProductDetails> get products => _products;
-
-  // Get current subscription tier
-  SubscriptionTier get currentTier {
-    final profile = _authService.currentUserProfile;
-    return profile?.subscriptionTier ?? SubscriptionTier.free;
-  }
-
-  // Check if user has an active premium subscription
-  bool get isPremium {
-    final profile = _authService.currentUserProfile;
-    return profile?.isPremium ?? false;
-  }
-
-  // Check if subscription is active
-  bool get hasActiveSubscription {
-    final profile = _authService.currentUserProfile;
-    return profile?.hasActiveSubscription ?? false;
-  }
-
-  // Initialize subscription service
+  
+  /// Initialize the subscription service
   Future<void> initialize() async {
     try {
-      // Set up the in-app purchase stream listener
-      final purchaseUpdated = _inAppPurchase.purchaseStream;
-      _subscription = purchaseUpdated.listen(
-        _listenToPurchaseUpdated,
-        onDone: () {
-          _subscription.cancel();
-        },
-        onError: (error) {
-          logger.e('Purchase stream error: $error');
-        },
-      );
-
-      // Check if in-app purchases are available
-      final isAvailable = await _inAppPurchase.isAvailable();
-      _isAvailable = isAvailable;
-
-      if (isAvailable) {
-        // Load available products
-        await _loadProducts();
-      }
-
-      _isLoading = false;
-      
-      logger.i('Subscription service initialized, IAP available: $_isAvailable');
+      await _loadSubscriptionData();
+      _logger.i('Subscription service initialized with tier: ${_currentTier.name}');
     } catch (e) {
-      _isLoading = false;
-      logger.e('Error initializing subscription service: $e');
+      _logger.e('Error initializing subscription service: $e');
     }
   }
-
-  // Load available products
-  Future<void> _loadProducts() async {
-    try {
-      // Set up product IDs
-      final Set<String> productIds = {
-        _kPremiumMonthlyId,
-        _kPremiumYearlyId,
-        _kBusinessMonthlyId,
-      };
-
-      // Query product details
-      final ProductDetailsResponse response = 
-          await _inAppPurchase.queryProductDetails(productIds);
-
-      if (response.error != null) {
-        logger.e('Error loading products: ${response.error}');
-        return;
-      }
-
-      _products = response.productDetails;
-      
-      logger.i('Loaded ${_products.length} products');
-    } catch (e) {
-      logger.e('Error loading products: $e');
+  
+  /// Get the current subscription tier
+  SubscriptionTier get currentTier => _currentTier;
+  
+  /// Check if the user has an active premium subscription
+  bool get isPremium => _currentTier.id != SubscriptionTier.free.id && !isSubscriptionExpired();
+  
+  /// Check if the user has an active business subscription
+  bool get isBusiness => _currentTier.id == SubscriptionTier.business.id && !isSubscriptionExpired();
+  
+  /// Get the subscription expiration date
+  DateTime? get expirationDate => _expirationDate;
+  
+  /// Check if the subscription has expired
+  bool isSubscriptionExpired() {
+    if (_expirationDate == null) {
+      return _currentTier.id != SubscriptionTier.free.id;
     }
+    return DateTime.now().isAfter(_expirationDate!);
   }
-
-  // Purchase a subscription
-  Future<bool> purchaseSubscription(ProductDetails product) async {
+  
+  /// Get available subscription tiers
+  List<SubscriptionTier> getAvailableTiers() {
+    return SubscriptionTier.allTiers;
+  }
+  
+  /// Update subscription tier (would connect to in-app purchase in real app)
+  Future<bool> updateSubscriptionTier(String tierId, {int durationMonths = 1}) async {
     try {
-      if (!_isAvailable) {
-        logger.w('In-app purchases not available');
+      final tier = SubscriptionTier.getById(tierId);
+      if (tier == null) {
+        _logger.e('Invalid subscription tier ID: $tierId');
         return false;
       }
-
-      if (_auth.currentUser == null) {
-        logger.w('User not logged in');
-        return false;
-      }
-
-      // Create purchase parameters
-      final purchaseParam = PurchaseParam(
-        productDetails: product,
-        applicationUserName: _auth.currentUser!.uid,
-      );
-
-      // Start the purchase flow
-      bool success;
-      if (Platform.isAndroid) {
-        success = await _inAppPurchase.buyNonConsumable(
-          purchaseParam: purchaseParam,
+      
+      _currentTier = tier;
+      
+      // Set expiration date if not free tier
+      if (tier.id != SubscriptionTier.free.id) {
+        final now = DateTime.now();
+        _expirationDate = DateTime(
+          now.year, 
+          now.month + durationMonths, 
+          now.day,
+          now.hour,
+          now.minute,
+          now.second
         );
       } else {
-        success = await _inAppPurchase.buyConsumable(
-          purchaseParam: purchaseParam,
-          autoConsume: true,
-        );
+        _expirationDate = null;
       }
-
-      logger.i('Purchase initiated: $success');
       
-      return success;
-    } catch (e) {
-      logger.e('Error purchasing subscription: $e');
-      return false;
-    }
-  }
-
-  // Restore purchases
-  Future<bool> restorePurchases() async {
-    try {
-      if (!_isAvailable) {
-        logger.w('In-app purchases not available');
-        return false;
-      }
-
-      if (_auth.currentUser == null) {
-        logger.w('User not logged in');
-        return false;
-      }
-
-      // Restore purchases
-      await _inAppPurchase.restorePurchases();
-      
-      logger.i('Restore purchases initiated');
+      await _saveSubscriptionData();
+      _logger.i('Subscription updated to ${tier.name}, expires: $_expirationDate');
       
       return true;
     } catch (e) {
-      logger.e('Error restoring purchases: $e');
+      _logger.e('Error updating subscription tier: $e');
       return false;
     }
   }
-
-  // Listen to purchase updated events
-  Future<void> _listenToPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) async {
-    for (final purchaseDetails in purchaseDetailsList) {
-      if (purchaseDetails.status == PurchaseStatus.pending) {
-        logger.i('Purchase pending: ${purchaseDetails.productID}');
+  
+  /// Restore purchases (would connect to in-app purchase in real app)
+  Future<bool> restorePurchases() async {
+    try {
+      // This would integrate with platform-specific IAP restore
+      _logger.i('Restoring purchases...');
+      
+      // For demo, just load from storage
+      await _loadSubscriptionData();
+      
+      return true;
+    } catch (e) {
+      _logger.e('Error restoring purchases: $e');
+      return false;
+    }
+  }
+  
+  /// Cancel subscription
+  Future<bool> cancelSubscription() async {
+    try {
+      // This would integrate with platform-specific IAP cancellation
+      _logger.i('Cancelling subscription...');
+      
+      // Keep premium until expiration date
+      // Don't change current tier or expiration date, just log the cancellation
+      _logger.i('Subscription cancelled, premium until: $_expirationDate');
+      
+      return true;
+    } catch (e) {
+      _logger.e('Error cancelling subscription: $e');
+      return false;
+    }
+  }
+  
+  /// Check if a feature is available with current subscription
+  bool isFeatureAvailable(String featureId) {
+    switch (featureId) {
+      case 'unlimited_accounts':
+        return isBusiness;
+        
+      case 'advanced_analytics':
+        return isPremium;
+        
+      case 'ad_free':
+        return isPremium;
+        
+      case 'custom_themes':
+        return isPremium;
+        
+      case 'data_export':
+        return isPremium;
+        
+      default:
+        return true; // Free features available to all
+    }
+  }
+  
+  /// Get the maximum number of accounts allowed with current subscription
+  int getMaxAccounts() {
+    if (isSubscriptionExpired()) {
+      return SubscriptionTier.free.maxAccounts;
+    }
+    return _currentTier.maxAccounts;
+  }
+  
+  /// Get subscription info as a map
+  Map<String, dynamic> getSubscriptionInfo() {
+    return {
+      'tier_id': _currentTier.id,
+      'tier_name': _currentTier.name,
+      'is_premium': isPremium,
+      'is_business': isBusiness,
+      'expiration_date': _expirationDate?.toIso8601String(),
+      'is_expired': isSubscriptionExpired(),
+      'max_accounts': getMaxAccounts(),
+    };
+  }
+  
+  /// Set a test subscription (for development only)
+  Future<void> setTestSubscription(String tierId, {int durationDays = 30}) async {
+    final tier = SubscriptionTier.getById(tierId);
+    if (tier != null) {
+      _currentTier = tier;
+      
+      if (tier.id != SubscriptionTier.free.id) {
+        final now = DateTime.now();
+        _expirationDate = now.add(Duration(days: durationDays));
       } else {
-        if (purchaseDetails.status == PurchaseStatus.error) {
-          logger.e('Purchase error: ${purchaseDetails.error}');
-        } else if (purchaseDetails.status == PurchaseStatus.purchased ||
-                 purchaseDetails.status == PurchaseStatus.restored) {
-          // Handle successful purchase
-          await _handleSuccessfulPurchase(purchaseDetails);
-        } else if (purchaseDetails.status == PurchaseStatus.canceled) {
-          logger.i('Purchase canceled: ${purchaseDetails.productID}');
+        _expirationDate = null;
+      }
+      
+      await _saveSubscriptionData();
+      _logger.i('Test subscription set to ${tier.name}, expires: $_expirationDate');
+    }
+  }
+  
+  /// Reset subscription to free tier (for development only)
+  Future<void> resetSubscription() async {
+    _currentTier = SubscriptionTier.free;
+    _expirationDate = null;
+    
+    await _saveSubscriptionData();
+    _logger.i('Subscription reset to free tier');
+  }
+  
+  /// Load subscription data from shared preferences
+  Future<void> _loadSubscriptionData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final tierId = prefs.getString('subscription_tier_id');
+      if (tierId != null) {
+        final tier = SubscriptionTier.getById(tierId);
+        if (tier != null) {
+          _currentTier = tier;
         }
-
-        // Complete the purchase
-        if (purchaseDetails.pendingCompletePurchase) {
-          await _inAppPurchase.completePurchase(purchaseDetails);
-        }
       }
-    }
-  }
-
-  // Handle successful purchase
-  Future<void> _handleSuccessfulPurchase(PurchaseDetails purchaseDetails) async {
-    try {
-      if (_auth.currentUser == null) {
-        logger.w('User not logged in');
-        return;
+      
+      final expirationStr = prefs.getString('subscription_expiration');
+      if (expirationStr != null) {
+        _expirationDate = DateTime.parse(expirationStr);
       }
-
-      // Determine subscription tier and duration from product ID
-      SubscriptionTier tier = SubscriptionTier.free;
-      int months = 0;
-
-      switch (purchaseDetails.productID) {
-        case _kPremiumMonthlyId:
-          tier = SubscriptionTier.premium;
-          months = 1;
-          break;
-        case _kPremiumYearlyId:
-          tier = SubscriptionTier.premium;
-          months = 12;
-          break;
-        case _kBusinessMonthlyId:
-          tier = SubscriptionTier.business;
-          months = 1;
-          break;
+      
+      // Check if expired and reset to free if needed
+      if (isSubscriptionExpired()) {
+        _logger.i('Subscription expired, resetting to free tier');
+        _currentTier = SubscriptionTier.free;
+        _expirationDate = null;
+        await _saveSubscriptionData();
       }
-
-      // Calculate expiry date
-      final now = DateTime.now();
-      final expiryDate = DateTime(
-        now.year,
-        now.month + months,
-        now.day,
-        now.hour,
-        now.minute,
-        now.second,
-      );
-
-      // Update user profile with subscription info
-      await _authService.updateSubscriptionTier(tier, expiryDate);
-
-      // Store purchase details in Firestore
-      await _firestore.collection('subscriptions').add({
-        'userId': _auth.currentUser!.uid,
-        'productId': purchaseDetails.productID,
-        'purchaseId': purchaseDetails.purchaseID,
-        'purchaseTime': now,
-        'expiryDate': expiryDate,
-        'tier': tier.toString().split('.').last,
-        'status': 'active',
-        'platform': Platform.isAndroid ? 'android' : 'ios',
-        'verificationData': purchaseDetails.verificationData.serverVerificationData,
-      });
-
-      logger.i('Successful purchase processed: ${purchaseDetails.productID}');
     } catch (e) {
-      logger.e('Error handling successful purchase: $e');
+      _logger.e('Error loading subscription data: $e');
     }
   }
-
-  // Get product details by ID
-  ProductDetails? getProductById(String productId) {
+  
+  /// Save subscription data to shared preferences
+  Future<void> _saveSubscriptionData() async {
     try {
-      return _products.firstWhere((product) => product.id == productId);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Format price for display
-  String formatPrice(ProductDetails product) {
-    return product.price;
-  }
-
-  // Calculate discount between monthly and yearly
-  double calculateYearlyDiscount() {
-    try {
-      final monthlyProduct = getProductById(_kPremiumMonthlyId);
-      final yearlyProduct = getProductById(_kPremiumYearlyId);
-
-      if (monthlyProduct == null || yearlyProduct == null) {
-        return 0;
+      final prefs = await SharedPreferences.getInstance();
+      
+      await prefs.setString('subscription_tier_id', _currentTier.id);
+      
+      if (_expirationDate != null) {
+        await prefs.setString('subscription_expiration', _expirationDate!.toIso8601String());
+      } else {
+        await prefs.remove('subscription_expiration');
       }
-
-      // Extract numeric price values (this is a simplified approach)
-      final monthlyPrice = double.tryParse(
-          monthlyProduct.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
-      final yearlyPrice = double.tryParse(
-          yearlyProduct.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
-
-      if (monthlyPrice <= 0) {
-        return 0;
-      }
-
-      // Calculate discount
-      final annualMonthlyTotal = monthlyPrice * 12;
-      final discount = (annualMonthlyTotal - yearlyPrice) / annualMonthlyTotal;
-
-      return discount * 100; // Return as percentage
     } catch (e) {
-      logger.e('Error calculating yearly discount: $e');
-      return 0;
+      _logger.e('Error saving subscription data: $e');
     }
-  }
-
-  // Dispose resources
-  void dispose() {
-    _subscription.cancel();
   }
 }

@@ -1,7 +1,7 @@
 // lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
 import 'package:feedstamer/screens/auth/login_screen.dart';
-import 'package:feedstamer/services/preferences_service.dart';
+import 'package:feedstamer/services/preference_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});

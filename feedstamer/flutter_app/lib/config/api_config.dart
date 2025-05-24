@@ -1,22 +1,22 @@
-// This file contains configuration for API access.
-// In a production app, these should be stored securely (e.g., with Flutter Environmental Variables)
-// or retrieved from a secure backend service.
+// lib/config/api_config.dart
 
-class ApiConfig {
-  // X (Twitter) API Credentials
-  static const String xApiKey = "UGFQox"; // Partial key for illustration
-  static const String xBearerToken = "REPLACE_WITH_BEARER_TOKEN";
-  static const String xAccessToken = "REPLACE_WITH_ACCESS_TOKEN";
-  static const String xAccessTokenSecret = "REPLACE_WITH_ACCESS_TOKEN_SECRET";
+/// Template class for API configuration
+/// Do not add actual credentials here - use secure_config.dart instead
+class TwitterApiConfig {
+  // Twitter API v2 endpoints
+  static const String baseUrl = 'https://api.twitter.com/2';
   
-  // In a real app, you'd implement secure retrieval methods
-  static Future<String> getXBearerToken() async {
-    // In a production app, you would:
-    // 1. Use a secure storage solution like flutter_secure_storage
-    // 2. Use Firebase Remote Config
-    // 3. Retrieve from your secure backend
-    
-    // For now, returning the hardcoded value
-    return xBearerToken;
-  }
+  // Endpoints
+  static const String usersEndpoint = '/users';
+  static const String tweetsEndpoint = '/tweets';
+  static const String searchEndpoint = '/tweets/search/recent';
+  
+  // Tweet fields to include in responses
+  static const String tweetFields = 'created_at,public_metrics,referenced_tweets,attachments,entities';
+  
+  // User fields to include in responses
+  static const String userFields = 'profile_image_url,description,public_metrics,verified,created_at';
+  
+  // Media fields to include in responses
+  static const String mediaFields = 'type,url,preview_image_url,width,height';
 }

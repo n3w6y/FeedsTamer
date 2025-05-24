@@ -149,7 +149,57 @@ class AuthService {
       rethrow;
     }
   }
-
+/// Creates a new user with email and password
+Future<UserCredential?> signUp({
+  required String email,
+  required String password,
+  String? name,
+}) async {
+  try {
+    // Create user with email and password
+    final userCredential = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+    
+    // Update user profile with name if provided
+    if (name != null && name.isNotEmpty && userCredential.user != null) {
+      await userCredential.user!.updateDisplayName(name);
+      
+      // Reload user to make sure the display name is updated
+      await userCredential.user!.reload();
+    }
+    
+    logger.i('User signed up: ${userCredential.user?.uid}');
+    
+    // Send email verification
+    await userCredential.user?.sendEmailVerification();
+    
+    // Load user profile
+    if (userCredential.user != null) {
+      await _loadUserProfile(userCredential.user!.uid);
+    }
+    
+    return userCredential;
+  } on FirebaseAuthException catch (e) {
+    logger.e('Error signing up: ${e.code} - ${e.message}');
+    
+    // Handle common sign-up errors
+    switch (e.code) {
+      case 'email-already-in-use':
+        throw 'This email is already in use. Please use a different email or try logging in.';
+      case 'weak-password':
+        throw 'The password is too weak. Please use a stronger password.';
+      case 'invalid-email':
+        throw 'The email address is invalid. Please enter a valid email.';
+      default:
+        throw 'An error occurred during registration. Please try again.';
+    }
+  } catch (e) {
+    logger.e('Unexpected error signing up: $e');
+    return null;
+  }
+}
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {

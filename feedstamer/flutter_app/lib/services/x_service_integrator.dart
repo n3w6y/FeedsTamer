@@ -1,171 +1,176 @@
-import 'package:flutter/material.dart';
+// lib/services/x_service_integrator.dart
+import 'package:feedstamer/services/x_api_service.dart';
 import 'package:logger/logger.dart';
-import 'package:feedstamer/services/twitter_api_service.dart';
-import 'package:feedstamer/services/account_service.dart';
-import 'package:feedstamer/services/feed_service.dart';
+import 'package:feedstamer/models/Tweet.dart';
 
-// This service helps integrate the X API with the app's UI and data flow
+/// Service that coordinates between Twitter API service and other app services
 class XServiceIntegrator {
-  // Singleton pattern
-  static final XServiceIntegrator _instance = XServiceIntegrator._internal();
-  factory XServiceIntegrator() => _instance;
-  XServiceIntegrator._internal();
-
-  final logger = Logger();
+  final TwitterApiService _twitterApiService;
+  final Logger _logger = Logger();
+  bool _isApiAvailable = false;
   
-  final TwitterApiService _twitterApiService = TwitterApiService();
-  final AccountService _accountService = AccountService();
-  final FeedService _feedService = FeedService();
-
-  // Flag to track if real API is being used
-  bool _usingRealApi = false;
-  bool get usingRealApi => _usingRealApi;
+  XServiceIntegrator({TwitterApiService? twitterApiService}) 
+      : _twitterApiService = twitterApiService ?? TwitterApiService();
   
-  // Initialize all services together
-  Future<void> initialize() async {
+  /// Check if the Twitter API is available
+  Future<bool> isApiAvailable() async {
     try {
-      logger.i('Initializing X service integrator...');
-
-      // Initialize Twitter API service
-      await _twitterApiService.initialize();
-      
-      // Check if API service is ready
-      _usingRealApi = await _twitterApiService.isReady();
-      
-      // Initialize account and feed services
-      await _accountService.initialize();
-      await _feedService.initialize();
-      
-      // Log initialization status
-      if (_usingRealApi) {
-        logger.i('X API integration enabled - using real API data');
-      } else {
-        logger.i('X API integration using mock data (API credentials not found or invalid)');
-      }
-      
-      logger.i('X service integrator initialized successfully');
+      _isApiAvailable = await _twitterApiService.isAvailable();
+      return _isApiAvailable;
     } catch (e) {
-      logger.e('Error initializing X service integrator: $e');
-      _usingRealApi = false;
-    }
-  }
-  
-  // Show API status dialog to user
-  void showApiStatusDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(_usingRealApi ? 'Using Real X API' : 'Using Mock Data'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _usingRealApi
-                  ? 'FeedsTamer is connected to the X API and using real data.'
-                  : 'FeedsTamer is using mock data for demonstration.',
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Icon(
-                  _usingRealApi ? Icons.check_circle : Icons.info,
-                  color: _usingRealApi ? Colors.green : Colors.orange,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _usingRealApi
-                      ? 'API connection successful'
-                      : 'API connection not configured',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: _usingRealApi ? Colors.green : Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  // Refresh all feeds (using real API if available, mock data otherwise)
-  Future<void> refreshAllFeeds() async {
-    try {
-      logger.i('Refreshing all feeds...');
-      
-      // If using real API, refresh from API
-      if (_usingRealApi) {
-        await _feedService.refreshFeed();
-      } else {
-        // Otherwise, use mock data
-        await _feedService.addMockTweets();
-      }
-      
-      logger.i('Feeds refreshed successfully');
-    } catch (e) {
-      logger.e('Error refreshing feeds: $e');
-      // Fall back to mock data if API fails
-      if (_usingRealApi) {
-        logger.i('Falling back to mock data');
-        await _feedService.addMockTweets();
-      }
-    }
-  }
-  
-  // Add a new account to follow
-  Future<bool> followNewAccount(String username) async {
-    try {
-      logger.i('Adding account to follow: $username');
-      
-      // If using real API, validate account first
-      if (_usingRealApi) {
-        final user = await _twitterApiService.getUserByUsername(username);
-        
-        if (user == null) {
-          logger.w('Account not found: $username');
-          return false;
-        }
-      }
-      
-      // Add account to followed accounts
-      final success = await _accountService.followAccount(username);
-      
-      // Refresh feeds if successful
-      if (success) {
-        await refreshAllFeeds();
-      }
-      
-      return success;
-    } catch (e) {
-      logger.e('Error following account: $e');
+      _logger.i('Twitter API not available: $e');
+      _isApiAvailable = false;
       return false;
     }
   }
   
-  // Add mock accounts and tweets for demonstration
-  Future<void> setupMockData() async {
-    try {
-      logger.i('Setting up mock data...');
-      
-      // Add mock accounts
-      await _accountService.addMockAccounts();
-      
-      // Add mock tweets
-      await _feedService.addMockTweets();
-      
-      logger.i('Mock data setup complete');
-    } catch (e) {
-      logger.e('Error setting up mock data: $e');
+  /// Get tweets from a list of followed accounts
+  Future<List<Tweet>> getTweetsFromFollowedAccounts(List<String> accountIds, {int maxResults = 10}) async {
+    List<Tweet> allTweets = [];
+    
+    // First check if API is available
+    if (!_isApiAvailable) {
+      await isApiAvailable();
     }
+    
+    // If API is still not available, return empty list
+    if (!_isApiAvailable) {
+      _logger.w('Twitter API not available, returning empty tweet list');
+      return [];
+    }
+    
+    try {
+      for (final userId in accountIds) {
+        try {
+          final response = await _twitterApiService.getTweetsFromUser(userId, maxResults: maxResults);
+          
+          if (response['data'] != null) {
+            final List<dynamic> tweets = response['data'];
+            for (var tweet in tweets) {
+              // Add author_id to each tweet
+              tweet['author_id'] = userId;
+              
+              // Try to get user information for this tweet
+              try {
+                final userResponse = await _twitterApiService.getUserDetails(userId);
+                if (userResponse['data'] != null) {
+                  tweet['author'] = userResponse['data'];
+                }
+              } catch (e) {
+                _logger.w('Error getting user details for tweet: $e');
+                // Continue without author information
+              }
+              
+              allTweets.add(Tweet.fromJson(tweet));
+            }
+          }
+        } catch (e) {
+          _logger.e('Error fetching tweets for user $userId: $e');
+          // Continue with other users
+        }
+      }
+      
+      // Sort tweets by created_at (newest first)
+      allTweets.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      
+      return allTweets;
+    } catch (e) {
+      _logger.e('Error in getTweetsFromFollowedAccounts: $e');
+      return [];
+    }
+  }
+  
+  /// Search for Twitter users by username
+  Future<List<TwitterUser>> searchTwitterUsers(String query) async {
+    // First check if API is available
+    if (!_isApiAvailable) {
+      await isApiAvailable();
+    }
+    
+    // If API is still not available, return empty list
+    if (!_isApiAvailable) {
+      _logger.w('Twitter API not available, returning empty user list');
+      return [];
+    }
+    
+    try {
+      final response = await _twitterApiService.searchUsers(query);
+      
+      List<TwitterUser> users = [];
+      if (response['data'] != null) {
+        final List<dynamic> userData = response['data'];
+        for (var user in userData) {
+          users.add(TwitterUser.fromJson(user));
+        }
+      }
+      
+      return users;
+    } catch (e) {
+      _logger.e('Error in searchTwitterUsers: $e');
+      return [];
+    }
+  }
+  
+  /// Get details for a specific Twitter user
+  Future<TwitterUser?> getTwitterUserDetails(String userId) async {
+    // First check if API is available
+    if (!_isApiAvailable) {
+      await isApiAvailable();
+    }
+    
+    // If API is still not available, return null
+    if (!_isApiAvailable) {
+      _logger.w('Twitter API not available, returning null user');
+      return null;
+    }
+    
+    try {
+      final response = await _twitterApiService.getUserDetails(userId);
+      
+      if (response['data'] != null) {
+        return TwitterUser.fromJson(response['data']);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      _logger.e('Error in getTwitterUserDetails: $e');
+      return null;
+    }
+  }
+  
+  /// Search for tweets with a specific query
+  Future<List<Tweet>> searchTweets(String query, {int maxResults = 10}) async {
+    // First check if API is available
+    if (!_isApiAvailable) {
+      await isApiAvailable();
+    }
+    
+    // If API is still not available, return empty list
+    if (!_isApiAvailable) {
+      _logger.w('Twitter API not available, returning empty tweet list');
+      return [];
+    }
+    
+    try {
+      final response = await _twitterApiService.searchTweets(query, maxResults: maxResults);
+      
+      List<Tweet> tweets = [];
+      if (response['data'] != null) {
+        final List<dynamic> tweetData = response['data'];
+        for (var tweet in tweetData) {
+          tweets.add(Tweet.fromJson(tweet));
+        }
+      }
+      
+      return tweets;
+    } catch (e) {
+      _logger.e('Error in searchTweets: $e');
+      return [];
+    }
+  }
+  
+  /// Clear the Twitter API cache
+  void clearCache() {
+    _twitterApiService.clearCache();
   }
 }

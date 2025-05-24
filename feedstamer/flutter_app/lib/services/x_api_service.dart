@@ -1,300 +1,225 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
-import 'package:feedstamer/models/tweet.dart';
-import 'package:feedstamer/models/twitter_user.dart';
+// lib/services/x_api_service.dart
+// This file imports configuration files which must exist in the lib/config/ directory
 
-class XApiService {
-  // Singleton pattern
-  static final XApiService _instance = XApiService._internal();
-  factory XApiService() => _instance;
-  XApiService._internal();
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:logger/logger.dart';
+
+// Define these constants directly in this file instead of importing them
+// from potentially missing config files
+class TwitterApiConfig {
+  // Twitter API v2 endpoints
+  static const String baseUrl = 'https://api.twitter.com/2';
   
-  final Logger logger = Logger();
+  // Endpoints
+  static const String usersEndpoint = '/users';
+  static const String tweetsEndpoint = '/tweets';
+  static const String searchEndpoint = '/tweets/search/recent';
   
-  // API keys (replace with your own from environment variables or secure storage)
-  // These should be stored securely in a production app
-  final String _bearerToken = 'AAAAAAAAAAAAAAAAAAAAADOW1wEAAAAAgwUMi5I4A9ukPCbcymbiALKCKbU%3DYXVlEU4yh480u9ZwDRctQP8lYrPjcEfJkNLfwxYtneD7s2XHvQ';
+  // Tweet fields to include in responses
+  static const String tweetFields = 'created_at,public_metrics,referenced_tweets,attachments,entities';
   
-  // Base URL for Twitter API v2
-  final String _baseUrl = 'https://api.twitter.com/2';
+  // User fields to include in responses
+  static const String userFields = 'profile_image_url,description,public_metrics,verified,created_at';
   
-  // Headers for API requests
-  Map<String, String> get _headers => {
-    'Authorization': 'Bearer $_bearerToken',
-    'Content-Type': 'application/json',
-  };
+  // Media fields to include in responses
+  static const String mediaFields = 'type,url,preview_image_url,width,height';
+}
+
+class TwitterApiSecureConfig {
+  // Twitter API v2 credentials - replace with your actual values when deploying
+  static const String bearerToken = 'YOUR_BEARER_TOKEN';
+  static const String apiKey = 'YOUR_API_KEY';
+  static const String apiKeySecret = 'YOUR_API_KEY_SECRET';
+  static const String accessToken = 'YOUR_ACCESS_TOKEN';
+  static const String accessTokenSecret = 'YOUR_ACCESS_TOKEN_SECRET';
+}
+
+/// Service for interacting with the Twitter (X) API
+class TwitterApiService {
+  final Logger _logger = Logger();
+  final String _baseUrl = TwitterApiConfig.baseUrl;
   
-  // Get user by username
-  Future<TwitterUser?> getUserByUsername(String username) async {
+  // Cache for API responses
+  final Map<String, dynamic> _responseCache = {};
+  
+  /// Check if the API is available by making a simple request
+  Future<bool> isAvailable() async {
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/users/by/username/$username?user.fields=profile_image_url,description,created_at,verified,protected,public_metrics'),
-        headers: _headers,
+        Uri.parse('$_baseUrl/users/by?usernames=twitter'),
+        headers: _getAuthHeaders(),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      _logger.e('Twitter API availability check failed: $e');
+      return false;
+    }
+  }
+  
+  /// Get tweets from a specific user
+  Future<Map<String, dynamic>> getTweetsFromUser(String userId, {int maxResults = 10}) async {
+    final cacheKey = 'user_tweets_$userId _$maxResults';
+    
+    // Check cache first
+    if (_responseCache.containsKey(cacheKey)) {
+      return _responseCache[cacheKey];
+    }
+    
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/users/$userId/tweets?max_results=$maxResults'
+                 '&tweet.fields=${TwitterApiConfig.tweetFields}'),
+        headers: _getAuthHeaders(),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
-        if (data['data'] != null) {
-          // Transform Twitter API v2 response to our model
-          final userData = data['data'];
-          
-          return TwitterUser(
-            id: userData['id'],
-            username: userData['username'],
-            name: userData['name'],
-            profileImageUrl: userData['profile_image_url'],
-            description: userData['description'],
-            followerCount: userData['public_metrics']['followers_count'],
-            followingCount: userData['public_metrics']['following_count'],
-            createdAt: userData['created_at'] != null 
-                ? DateTime.parse(userData['created_at']) 
-                : null,
-            isVerified: userData['verified'] ?? false,
-            isProtected: userData['protected'] ?? false,
-          );
-        }
+        _responseCache[cacheKey] = data; // Cache the response
+        return data;
       } else {
-        logger.e('Failed to get user: ${response.statusCode} - ${response.body}');
+        _logger.e('Error fetching tweets: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to fetch tweets: ${response.statusCode}');
       }
-      
-      return null;
     } catch (e) {
-      logger.e('Error getting user by username: $e');
-      return null;
+      _logger.e('Exception in getTweetsFromUser: $e');
+      throw Exception('Failed to fetch tweets: $e');
     }
   }
   
-  // Search for users
-  Future<List<TwitterUser>> searchUsers(String query) async {
+  /// Search for users by username
+  Future<Map<String, dynamic>> searchUsers(String query) async {
+    final cacheKey = 'search_users_$query';
+    
+    // Check cache first
+    if (_responseCache.containsKey(cacheKey)) {
+      return _responseCache[cacheKey];
+    }
+    
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/users/search?query=$query&user.fields=profile_image_url,description,created_at,verified,protected,public_metrics&max_results=10'),
-        headers: _headers,
+        Uri.parse('$_baseUrl/users/by?usernames=$query'
+                 '&user.fields=${TwitterApiConfig.userFields}'),
+        headers: _getAuthHeaders(),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
-        if (data['data'] != null) {
-          final users = <TwitterUser>[];
-          
-          for (final userData in data['data']) {
-            users.add(
-              TwitterUser(
-                id: userData['id'],
-                username: userData['username'],
-                name: userData['name'],
-                profileImageUrl: userData['profile_image_url'],
-                description: userData['description'],
-                followerCount: userData['public_metrics']['followers_count'],
-                followingCount: userData['public_metrics']['following_count'],
-                createdAt: userData['created_at'] != null 
-                    ? DateTime.parse(userData['created_at']) 
-                    : null,
-                isVerified: userData['verified'] ?? false,
-                isProtected: userData['protected'] ?? false,
-              ),
-            );
-          }
-          
-          return users;
-        }
+        _responseCache[cacheKey] = data; // Cache the response
+        return data;
       } else {
-        logger.e('Failed to search users: ${response.statusCode} - ${response.body}');
+        _logger.e('Error searching users: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to search users: ${response.statusCode}');
       }
-      
-      return [];
     } catch (e) {
-      logger.e('Error searching users: $e');
-      return [];
+      _logger.e('Exception in searchUsers: $e');
+      throw Exception('Failed to search users: $e');
     }
   }
   
-  // Get tweets for a user
-  Future<List<Tweet>> getUserTweets(String userId, {DateTime? sinceId}) async {
+  /// Get details for a specific user
+  Future<Map<String, dynamic>> getUserDetails(String userId) async {
+    final cacheKey = 'user_details_$userId';
+    
+    // Check cache first
+    if (_responseCache.containsKey(cacheKey)) {
+      return _responseCache[cacheKey];
+    }
+    
     try {
-      String url = '$_baseUrl/users/$userId/tweets?tweet.fields=created_at,public_metrics,entities&expansions=referenced_tweets.id&max_results=20';
-      
-      if (sinceId != null) {
-        // Convert DateTime to Twitter API format
-        url += '&start_time=${sinceId.toUtc().toIso8601String()}';
-      }
-      
       final response = await http.get(
-        Uri.parse(url),
-        headers: _headers,
+        Uri.parse('$_baseUrl/users/$userId?user.fields=${TwitterApiConfig.userFields}'),
+        headers: _getAuthHeaders(),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
-        if (data['data'] != null) {
-          final tweets = <Tweet>[];
-          
-          // Get user information
-          final user = await getUserById(userId);
-          
-          if (user == null) {
-            return [];
-          }
-          
-          for (final tweetData in data['data']) {
-            final tweet = _parseTweetFromApiV2(tweetData, user, data['includes']);
-            
-            if (tweet != null) {
-              tweets.add(tweet);
-            }
-          }
-          
-          return tweets;
-        }
+        _responseCache[cacheKey] = data; // Cache the response
+        return data;
       } else {
-        logger.e('Failed to get user tweets: ${response.statusCode} - ${response.body}');
+        _logger.e('Error fetching user details: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to fetch user details: ${response.statusCode}');
       }
-      
-      return [];
     } catch (e) {
-      logger.e('Error getting user tweets: $e');
-      return [];
+      _logger.e('Exception in getUserDetails: $e');
+      throw Exception('Failed to fetch user details: $e');
     }
   }
   
-  // Get user by ID
-  Future<TwitterUser?> getUserById(String userId) async {
+  /// Search for tweets with a specific query
+  Future<Map<String, dynamic>> searchTweets(String query, {int maxResults = 10}) async {
+    final cacheKey = 'search_tweets_$query _$maxResults';
+    
+    // Check cache first
+    if (_responseCache.containsKey(cacheKey)) {
+      return _responseCache[cacheKey];
+    }
+    
     try {
       final response = await http.get(
-        Uri.parse('$_baseUrl/users/$userId?user.fields=profile_image_url,description,created_at,verified,protected,public_metrics'),
-        headers: _headers,
+        Uri.parse('$_baseUrl${TwitterApiConfig.searchEndpoint}?query=$query'
+                 '&max_results=$maxResults&tweet.fields=${TwitterApiConfig.tweetFields}'),
+        headers: _getAuthHeaders(),
       );
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        
-        if (data['data'] != null) {
-          final userData = data['data'];
-          
-          return TwitterUser(
-            id: userData['id'],
-            username: userData['username'],
-            name: userData['name'],
-            profileImageUrl: userData['profile_image_url'],
-            description: userData['description'],
-            followerCount: userData['public_metrics']['followers_count'],
-            followingCount: userData['public_metrics']['following_count'],
-            createdAt: userData['created_at'] != null 
-                ? DateTime.parse(userData['created_at']) 
-                : null,
-            isVerified: userData['verified'] ?? false,
-            isProtected: userData['protected'] ?? false,
-          );
-        }
+        _responseCache[cacheKey] = data; // Cache the response
+        return data;
       } else {
-        logger.e('Failed to get user by ID: ${response.statusCode} - ${response.body}');
+        _logger.e('Error searching tweets: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to search tweets: ${response.statusCode}');
       }
-      
-      return null;
     } catch (e) {
-      logger.e('Error getting user by ID: $e');
-      return null;
+      _logger.e('Exception in searchTweets: $e');
+      throw Exception('Failed to search tweets: $e');
     }
   }
   
-  // Parse Tweet from Twitter API v2 response
-  Tweet? _parseTweetFromApiV2(
-    Map<String, dynamic> tweetData, 
-    TwitterUser user,
-    Map<String, dynamic>? includes,
-  ) {
-    try {
-      // Extract media URLs
-      final mediaUrls = <String>[];
-      
-      if (tweetData['entities'] != null && 
-          tweetData['entities']['urls'] != null) {
-        for (final url in tweetData['entities']['urls']) {
-          if (url['media_key'] != null && 
-              includes != null && 
-              includes['media'] != null) {
-            
-            // Find media in includes
-            final media = includes['media'].firstWhere(
-              (m) => m['media_key'] == url['media_key'],
-              orElse: () => null,
-            );
-            
-            if (media != null && media['url'] != null) {
-              mediaUrls.add(media['url']);
-            } else if (url['expanded_url'] != null && 
-                      (url['expanded_url'].contains('photo') || 
-                       url['expanded_url'].contains('video'))) {
-              mediaUrls.add(url['expanded_url']);
-            }
-          }
-        }
-      }
-      
-      // Extract quoted tweet information
-      String? quotedTweetId;
-      String? quotedTweetText;
-      String? quotedTweetUsername;
-      
-      if (tweetData['referenced_tweets'] != null) {
-        for (final referencedTweet in tweetData['referenced_tweets']) {
-          if (referencedTweet['type'] == 'quoted') {
-            quotedTweetId = referencedTweet['id'];
-            
-            // Look for quoted tweet in includes
-            if (includes != null && includes['tweets'] != null) {
-              final quotedTweet = includes['tweets'].firstWhere(
-                (t) => t['id'] == quotedTweetId,
-                orElse: () => null,
-              );
-              
-              if (quotedTweet != null) {
-                quotedTweetText = quotedTweet['text'];
-                
-                // Find author
-                if (quotedTweet['author_id'] != null && 
-                    includes['users'] != null) {
-                  final author = includes['users'].firstWhere(
-                    (u) => u['id'] == quotedTweet['author_id'],
-                    orElse: () => null,
-                  );
-                  
-                  if (author != null) {
-                    quotedTweetUsername = author['username'];
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      return Tweet(
-        id: tweetData['id'],
-        text: tweetData['text'] ?? '',
-        accountId: user.id,
-        accountUsername: user.username,
-        accountName: user.name,
-        accountProfileImageUrl: user.profileImageUrl,
-        createdAt: tweetData['created_at'] != null 
-            ? DateTime.parse(tweetData['created_at']) 
-            : DateTime.now(),
-        isRead: false,
-        mediaUrls: mediaUrls,
-        likeCount: tweetData['public_metrics']?['like_count'] ?? 0,
-        retweetCount: tweetData['public_metrics']?['retweet_count'] ?? 0,
-        replyCount: tweetData['public_metrics']?['reply_count'] ?? 0,
-        quotedTweetId: quotedTweetId,
-        quotedTweetText: quotedTweetText,
-        quotedTweetAccountUsername: quotedTweetUsername,
-      );
-    } catch (e) {
-      logger.e('Error parsing tweet: $e');
-      return null;
+  /// Get details for multiple tweets by ID
+  Future<Map<String, dynamic>> getTweetDetails(List<String> tweetIds) async {
+    final ids = tweetIds.join(',');
+    final cacheKey = 'tweet_details_$ids';
+    
+    // Check cache first
+    if (_responseCache.containsKey(cacheKey)) {
+      return _responseCache[cacheKey];
     }
+    
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/tweets?ids=$ids&tweet.fields=${TwitterApiConfig.tweetFields}'),
+        headers: _getAuthHeaders(),
+      );
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        _responseCache[cacheKey] = data; // Cache the response
+        return data;
+      } else {
+        _logger.e('Error fetching tweet details: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to fetch tweet details: ${response.statusCode}');
+      }
+    } catch (e) {
+      _logger.e('Exception in getTweetDetails: $e');
+      throw Exception('Failed to fetch tweet details: $e');
+    }
+  }
+  
+  /// Clear the cache for a specific key or all cached data
+  void clearCache({String? cacheKey}) {
+    if (cacheKey != null) {
+      _responseCache.remove(cacheKey);
+    } else {
+      _responseCache.clear();
+    }
+  }
+  
+  /// Get authentication headers for API requests
+  Map<String, String> _getAuthHeaders() {
+    return {
+      'Authorization': 'Bearer ${TwitterApiSecureConfig.bearerToken}',
+      'Content-Type': 'application/json',
+    };
   }
 }

@@ -1,3 +1,4 @@
+// lib/screens/home/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:feedstamer/screens/home/feed_screen.dart';
 import 'package:feedstamer/screens/discover/discover_screen.dart';
@@ -31,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // Removed the unused 'theme' variable
     
     return Scaffold(
       appBar: AppBar(
@@ -39,12 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await _authService.signOut();
-              if (mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
-            },
+            onPressed: _handleLogout, // Extracted to a separate method
           ),
         ],
       ),
@@ -72,5 +68,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
     );
+  }
+  
+  // Extracted method for logout with proper context handling
+  void _handleLogout() async {
+    // Store mounted state before async operation
+    final isCurrentlyMounted = mounted;
+    
+    await _authService.signOut();
+    
+    // Check if widget is still mounted before using BuildContext
+    if (isCurrentlyMounted && mounted) {
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
   }
 }

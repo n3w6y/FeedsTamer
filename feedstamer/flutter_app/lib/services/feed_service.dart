@@ -1,125 +1,162 @@
-import 'package:feedstamer/models/tweet.dart';
+// lib/services/feed_service.dart
+import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
+// Import the corrected path for the Tweet model
+import 'package:feedstamer/models/tweet.dart'; // Lowercase 't' in the import
+import 'package:feedstamer/services/x_service_integrator.dart';
+
+/// Service for managing feeds from different platforms
 class FeedService {
-  // Singleton pattern
+  final XServiceIntegrator _xServiceIntegrator;
+  final Logger _logger = Logger();
+  
+  // Cache for followed accounts
+  List<String> _followedTwitterAccounts = [];
+  
+  // Singleton instance
   static final FeedService _instance = FeedService._internal();
-  factory FeedService() => _instance;
-  FeedService._internal();
   
-  // In-memory cache for demo
-  final Map<String, bool> _readTweets = {};
-  DateTime? _lastFetchTime;
-  
-  // Get last fetch time
-  DateTime? getLastFetchTime() {
-    return _lastFetchTime;
+  // Factory constructor - fixed the null safety issue
+  factory FeedService({XServiceIntegrator? xServiceIntegrator}) {
+    if (xServiceIntegrator != null) {
+      // Use a non-null assertion operator to convert nullable to non-nullable
+      _instance._xServiceIntegrator = xServiceIntegrator;
+    }
+    return _instance;
   }
   
-  // Mark tweet as read
-  Future<void> markTweetAsRead(String tweetId) async {
-    _readTweets[tweetId] = true;
-    
-    // Save to persistent storage in a real app
+  // Private constructor - initialize with non-nullable XServiceIntegrator
+  FeedService._internal() : _xServiceIntegrator = XServiceIntegrator();
+  
+  /// Initialize the feed service
+  Future<void> initialize() async {
+    await _loadFollowedAccounts();
+  }
+  
+  /// Get tweets from followed accounts
+  Future<List<Tweet>> getTwitterFeed({int maxResults = 10}) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final readTweets = prefs.getStringList('read_tweets') ?? [];
-      if (!readTweets.contains(tweetId)) {
-        readTweets.add(tweetId);
-        await prefs.setStringList('read_tweets', readTweets);
+      // Check if any accounts are followed
+      if (_followedTwitterAccounts.isEmpty) {
+        await _loadFollowedAccounts();
+        
+        // If still empty, return empty list
+        if (_followedTwitterAccounts.isEmpty) {
+          return [];
+        }
       }
+      
+      // Get tweets from followed accounts
+      return await _xServiceIntegrator.getTweetsFromFollowedAccounts(
+        _followedTwitterAccounts,
+        maxResults: maxResults,
+      );
     } catch (e) {
-      // Handle error
-      print('Error saving read state: $e');
+      _logger.e('Error getting Twitter feed: $e');
+      return [];
     }
   }
   
-  // Get feed tweets
-  Future<List<Tweet>> getFeedTweets({DateTime? since}) async {
-    // Update last fetch time
-    _lastFetchTime = DateTime.now();
-    
-    // In a real app, fetch from API
-    // For now, return mock data
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
-    
-    return _getMockTweets();
+  /// Get list of followed Twitter accounts
+  Future<List<String>> getFollowedTwitterAccounts() async {
+    await _loadFollowedAccounts();
+    return _followedTwitterAccounts;
   }
   
-  // Mock data for demo
-  List<Tweet> _getMockTweets() {
-    final authors = [
-      TwitterUser(
-        id: '1',
-        username: 'elonmusk',
-        displayName: 'Elon Musk',
-        profileImageUrl: 'https://pbs.twimg.com/profile_images/1683325380441128960/yRsRRjGO_400x400.jpg',
-      ),
-      TwitterUser(
-        id: '2',
-        username: 'BillGates',
-        displayName: 'Bill Gates',
-        profileImageUrl: 'https://pbs.twimg.com/profile_images/1414439092373254147/JdS8yLGI_400x400.jpg',
-      ),
-      TwitterUser(
-        id: '3',
-        username: 'tim_cook',
-        displayName: 'Tim Cook',
-        profileImageUrl: 'https://pbs.twimg.com/profile_images/1535420431766671360/Pwq-1eJc_400x400.jpg',
-      ),
-    ];
-    
-    return [
-      Tweet(
-        id: '1',
-        text: 'Excited about the future of AI! What do you think will be the biggest breakthrough in the next 5 years?',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        author: authors[0],
-        likeCount: 5432,
-        retweetCount: 1234,
-        replyCount: 543,
-        isRead: _readTweets['1'] ?? false,
-      ),
-      Tweet(
-        id: '2',
-        text: 'Climate change requires global cooperation like we have never seen before. I am optimistic that we can make progress.',
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        author: authors[1],
-        likeCount: 8765,
-        retweetCount: 2345,
-        replyCount: 876,
-        isRead: _readTweets['2'] ?? false,
-      ),
-      Tweet(
-        id: '3',
-        text: 'Privacy is a fundamental human right. At Apple, it is also one of our core values.',
-        createdAt: DateTime.now().subtract(const Duration(hours: 8)),
-        author: authors[2],
-        likeCount: 7654,
-        retweetCount: 1987,
-        replyCount: 765,
-        isRead: _readTweets['3'] ?? false,
-      ),
-      Tweet(
-        id: '4',
-        text: 'Just had a great conversation with the team about our latest projects. Cannot wait to share more soon!',
-        createdAt: DateTime.now().subtract(const Duration(hours: 12)),
-        author: authors[0],
-        likeCount: 3456,
-        retweetCount: 876,
-        replyCount: 234,
-        isRead: _readTweets['4'] ?? false,
-      ),
-      Tweet(
-        id: '5',
-        text: 'Reading is still the main way that I both learn new things and test my understanding. How do you learn?',
-        createdAt: DateTime.now().subtract(const Duration(hours: 18)),
-        author: authors[1],
-        likeCount: 6789,
-        retweetCount: 1543,
-        replyCount: 654,
-        isRead: _readTweets['5'] ?? false,
-      ),
-    ];
+  /// Follow a new Twitter account
+  Future<bool> followTwitterAccount(String accountId) async {
+    try {
+      // Check if account is already followed
+      if (_followedTwitterAccounts.contains(accountId)) {
+        return true; // Already following
+      }
+      
+      // Add account to followed list
+      _followedTwitterAccounts.add(accountId);
+      
+      // Save updated list
+      await _saveFollowedAccounts();
+      
+      return true;
+    } catch (e) {
+      _logger.e('Error following Twitter account: $e');
+      return false;
+    }
+  }
+  
+  /// Unfollow a Twitter account
+  Future<bool> unfollowTwitterAccount(String accountId) async {
+    try {
+      // Remove account from followed list
+      _followedTwitterAccounts.remove(accountId);
+      
+      // Save updated list
+      await _saveFollowedAccounts();
+      
+      return true;
+    } catch (e) {
+      _logger.e('Error unfollowing Twitter account: $e');
+      return false;
+    }
+  }
+  
+  /// Search for Twitter accounts
+  Future<List<TwitterUser>> searchTwitterAccounts(String query) async {
+    try {
+      return await _xServiceIntegrator.searchTwitterUsers(query);
+    } catch (e) {
+      _logger.e('Error searching Twitter accounts: $e');
+      return [];
+    }
+  }
+  
+  /// Check if a Twitter account is followed
+  bool isTwitterAccountFollowed(String accountId) {
+    return _followedTwitterAccounts.contains(accountId);
+  }
+  
+  /// Clear feed cache
+  void clearCache() {
+    _xServiceIntegrator.clearCache();
+  }
+  
+  /// Load followed accounts from SharedPreferences
+  Future<void> _loadFollowedAccounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accountsJson = prefs.getString('followed_twitter_accounts');
+      
+      if (accountsJson != null) {
+        final List<dynamic> accountsList = json.decode(accountsJson);
+        _followedTwitterAccounts = accountsList.map((e) => e.toString()).toList();
+      } else {
+        // Default followed accounts for testing
+        _followedTwitterAccounts = [
+          '44196397', // @elonmusk
+          '783214',   // @twitter
+        ];
+        await _saveFollowedAccounts();
+      }
+    } catch (e) {
+      _logger.e('Error loading followed accounts: $e');
+      // Set default accounts
+      _followedTwitterAccounts = [
+        '44196397', // @elonmusk
+        '783214',   // @twitter
+      ];
+    }
+  }
+  
+  /// Save followed accounts to SharedPreferences
+  Future<void> _saveFollowedAccounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final accountsJson = json.encode(_followedTwitterAccounts);
+      await prefs.setString('followed_twitter_accounts', accountsJson);
+    } catch (e) {
+      _logger.e('Error saving followed accounts: $e');
+    }
   }
 }
